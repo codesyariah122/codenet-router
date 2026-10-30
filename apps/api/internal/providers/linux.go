@@ -20,13 +20,49 @@ import (
 // LinuxProvider hanya menjalankan operasi pembacaan yang telah ditentukan.
 // Tidak ada input pengguna yang diteruskan sebagai shell command.
 type LinuxProvider struct {
-	mu          sync.Mutex
-	lastSample  time.Time
-	lastRXBytes uint64
-	lastTXBytes uint64
+	mu             sync.Mutex
+	lastSample     time.Time
+	lastRXBytes    uint64
+	lastTXBytes    uint64
+	accelPPP       AccelPPPMonitor
+	sessionMu      sync.Mutex
+	sessionSamples map[string]sessionTrafficSample
 }
 
-func NewLinux() *LinuxProvider { return &LinuxProvider{} }
+type sessionTrafficSample struct {
+	at time.Time
+	rx uint64
+	tx uint64
+}
+
+func NewLinux() *LinuxProvider {
+	return NewLinuxWithAccelPPP(accelPPPMonitorFromEnv())
+}
+
+func NewLinuxWithAccelPPP(monitor AccelPPPMonitor) *LinuxProvider {
+	if monitor == nil {
+		monitor = NewUnavailableAccelPPPMonitor()
+	}
+	return &LinuxProvider{accelPPP: monitor, sessionSamples: make(map[string]sessionTrafficSample)}
+}
+
+func accelPPPMonitorFromEnv() AccelPPPMonitor {
+	if passwordFile := strings.TrimSpace(os.Getenv("CODENET_ACCEL_PPP_CLI_PASSWORD_FILE")); passwordFile != "" {
+		host := strings.TrimSpace(os.Getenv("CODENET_ACCEL_PPP_CLI_HOST"))
+		if host == "" {
+			host = "127.0.0.1"
+		}
+		port := strings.TrimSpace(os.Getenv("CODENET_ACCEL_PPP_CLI_PORT"))
+		if port == "" {
+			port = "2001"
+		}
+		return NewTCPAccelPPPMonitor(host, port, passwordFile)
+	}
+	if path := strings.TrimSpace(os.Getenv("CODENET_ACCEL_PPP_CONTROL_SOCKET")); path != "" {
+		return NewJSONSocketAccelPPPMonitor(path)
+	}
+	return NewUnavailableAccelPPPMonitor()
+}
 
 func (p *LinuxProvider) SystemInfo(ctx context.Context) (models.SystemInfo, error) {
 	hostname, err := os.Hostname()
@@ -204,20 +240,61 @@ func (p *LinuxProvider) PPPoEStatus(ctx context.Context) (models.PPPoEStatus, er
 			status = service.Status
 		}
 	}
-	sessions, err := p.PPPoESessions(ctx)
-	if err != nil {
-		return models.PPPoEStatus{}, err
+	result := models.PPPoEStatus{ServiceName: "CODENET-PPPOE", Status: status, ControlStatus: "unavailable", SessionCountReady: false}
+	info, infoErr := p.accelPPP.Info(ctx)
+	if infoErr != nil {
+		result.MonitoringError = "Control interface Accel-PPP tidak tersedia"
+		return result, nil
 	}
-	return models.PPPoEStatus{ServiceName: "CODENET-PPPOE", AccessConcentrator: "CODENET", Status: status, ActiveSessions: len(sessions), Pool: "10.60.0.10-10.60.0.50"}, nil
+	result.AccessConcentrator = info.AccessConcentrator
+	result.ServerInterface = info.ServerInterface
+	result.Pool = info.Pool
+	result.PoolSource = info.PoolSource
+	result.ControlStatus = "available"
+	sessions, sessionsErr := p.PPPoESessions(ctx)
+	if sessionsErr != nil {
+		result.ControlStatus = "error"
+		result.MonitoringError = "Sesi Accel-PPP tidak dapat dibaca"
+		return result, nil
+	}
+	result.ActiveSessions = len(sessions)
+	result.SessionCountReady = true
+	return result, nil
 }
 
-func (p *LinuxProvider) PPPoESessions(context.Context) ([]models.PPPoESession, error) {
-	// Integrasi CLI Accel-PPP sengaja belum diaktifkan sampai socket kontrol dan format output dikonfigurasi eksplisit.
-	return []models.PPPoESession{}, nil
+func (p *LinuxProvider) PPPoESessions(ctx context.Context) ([]models.PPPoESession, error) {
+	sessions, err := p.accelPPP.Sessions(ctx)
+	if err != nil {
+		return nil, MonitoringUnavailableError{Cause: err}
+	}
+	now := time.Now()
+	for i := range sessions {
+		stats, statsErr := readInterfaceStats(ctx, sessions[i].Interface)
+		if statsErr != nil {
+			sessions[i].Status = "interface_missing"
+			sessions[i].DownloadBPS = 0
+			sessions[i].UploadBPS = 0
+			continue
+		}
+		sessions[i].RXBytes, sessions[i].TXBytes = stats[0], stats[1]
+		p.sessionMu.Lock()
+		previous, found := p.sessionSamples[sessions[i].Interface]
+		p.sessionSamples[sessions[i].Interface] = sessionTrafficSample{at: now, rx: stats[0], tx: stats[1]}
+		p.sessionMu.Unlock()
+		if found {
+			seconds := now.Sub(previous.at).Seconds()
+			if seconds > 0 {
+				sessions[i].UploadBPS = counterRate(previous.rx, stats[0], now.Sub(previous.at))
+				sessions[i].DownloadBPS = counterRate(previous.tx, stats[1], now.Sub(previous.at))
+			}
+		}
+	}
+	return sessions, nil
 }
 
 func (p *LinuxProvider) BandwidthProfiles(context.Context) ([]models.BandwidthProfile, error) {
-	return []models.BandwidthProfile{{Name: "default", DownloadBPS: 10_000_000, UploadBPS: 5_000_000, Description: "Nilai konfigurasi CODENET saat ini"}}, nil
+	// Profil Accel-PPP belum memiliki sumber read-only yang terverifikasi.
+	return []models.BandwidthProfile{}, nil
 }
 
 func (p *LinuxProvider) BandwidthStatistics(ctx context.Context) ([]models.BandwidthStatistic, error) {
@@ -243,7 +320,7 @@ func (p *LinuxProvider) BandwidthStatistics(ctx context.Context) ([]models.Bandw
 		if cmdErr == nil && output.Len() > 0 {
 			limiter = "active"
 		}
-		stats = append(stats, models.BandwidthStatistic{Interface: item.Name, DownloadLimit: 10_000_000, UploadLimit: 5_000_000, LimiterStatus: limiter})
+		stats = append(stats, models.BandwidthStatistic{Interface: item.Name, LimiterStatus: limiter})
 	}
 	return stats, nil
 }

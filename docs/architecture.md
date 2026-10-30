@@ -1,4 +1,4 @@
-# Arsitektur CODENET v0.2
+# Arsitektur CODENET v0.3
 
 ## Tujuan
 
@@ -37,6 +37,27 @@ binary tetap, lalu mem-parsing destination, gateway, device, metric, protocol,
 scope, table, dan route type. Tidak ada operasi `ip add`, `ip route replace`,
 atau perintah konfigurasi lain.
 
+### Accel-PPP monitoring
+
+`AccelPPPMonitor` adalah kontrak read-only terpisah dari Linux Provider. Default
+provider memakai `unavailableAccelPPPMonitor`, sehingga kegagalan control
+interface menghasilkan status/error eksplisit dan tidak disamakan dengan nol
+sesi. `TCPAccelPPPMonitor` dibuat jika
+`CODENET_ACCEL_PPP_CLI_PASSWORD_FILE` diisi (default host/port
+`127.0.0.1:2001`) dan hanya mengirim `show sessions`. Password dibaca dari
+file owner-only. `JSONSocketAccelPPPMonitor` tetap dibuat jika
+`CODENET_ACCEL_PPP_CONTROL_SOCKET` diisi; format JSON-lines tersebut adalah
+adapter CODENET yang harus disediakan dan diverifikasi terhadap instalasi
+Accel-PPP Debian. Semua request
+memiliki timeout 2 detik, output maksimum 2 MiB, validasi session, dan tidak
+membaca `chap-secrets`.
+
+Counter `/sys/class/net/<ppp>/statistics` dipetakan dari perspektif router:
+RX berarti pelanggan mengunggah data ke router, sedangkan TX berarti router
+mengunduh data ke pelanggan. Rate dihitung dari delta counter dan interval;
+reset counter/interface hilang menghasilkan nol rate atau status
+`interface_missing`, bukan nilai negatif.
+
 ## Frontend
 
 WebFig menggunakan route terpisah untuk setiap domain. TanStack Query mengelola cache, loading, error, retry, dan refresh periodik. Service API menjadi satu-satunya lokasi akses HTTP. Komponen presentasional tidak mengetahui URL backend. Modul IP Addresses dan IP Routes menyediakan filter interface/versi, pencarian, refresh, detail, dan empty state.
@@ -68,3 +89,8 @@ CSRF dan otorisasi tambahan, mencatat audit event, serta memakai helper
 terpisah dengan operasi fixed-command. Safe Apply harus menyimpan snapshot,
 menguji konektivitas management, memiliki timeout dan automatic rollback bila
 health check gagal, lalu melakukan persistence secara atomik setelah sukses.
+
+PPPoE user management juga belum aktif. Create/update/disable/delete user,
+assignment profile, dan disconnect session harus memakai adapter write terpisah,
+CSRF/otorisasi, audit log, preview, dan rollback. `chap-secrets` tidak boleh
+diubah otomatis oleh v0.3.

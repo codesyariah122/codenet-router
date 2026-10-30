@@ -140,8 +140,11 @@ func (a *API) write(w http.ResponseWriter, status int, message string, data any)
 func (a *API) fail(w http.ResponseWriter, err error) {
 	status, code, message := http.StatusInternalServerError, "INTERNAL_ERROR", "Data tidak dapat diambil"
 	var notFound providers.NotFoundError
+	var unavailable providers.MonitoringUnavailableError
 	if errors.As(err, &notFound) {
 		status, code, message = http.StatusNotFound, "NOT_FOUND", err.Error()
+	} else if errors.As(err, &unavailable) {
+		status, code, message = http.StatusServiceUnavailable, "MONITORING_UNAVAILABLE", "Sumber monitoring tidak tersedia"
 	}
 	a.logger.Error("provider gagal", "error", err)
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")

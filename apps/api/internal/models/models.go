@@ -63,9 +63,14 @@ type Route struct {
 type PPPoEStatus struct {
 	ServiceName        string `json:"service_name"`
 	AccessConcentrator string `json:"access_concentrator"`
+	ServerInterface    string `json:"server_interface,omitempty"`
 	Status             string `json:"status"`
 	ActiveSessions     int    `json:"active_sessions"`
+	SessionCountReady  bool   `json:"session_count_ready"`
 	Pool               string `json:"ip_pool"`
+	PoolSource         string `json:"pool_source,omitempty"`
+	ControlStatus      string `json:"control_status"`
+	MonitoringError    string `json:"monitoring_error,omitempty"`
 }
 
 type PPPoESession struct {
@@ -76,6 +81,8 @@ type PPPoESession struct {
 	UptimeSeconds int64     `json:"uptime_seconds"`
 	RXBytes       uint64    `json:"rx_bytes"`
 	TXBytes       uint64    `json:"tx_bytes"`
+	DownloadBPS   uint64    `json:"download_bps"`
+	UploadBPS     uint64    `json:"upload_bps"`
 	Status        string    `json:"status"`
 }
 

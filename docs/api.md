@@ -1,4 +1,4 @@
-# Management API v0.2
+# Management API v0.3
 
 Base path: `/api/v1`. Kontrak mesin tersedia di `apps/api/openapi/openapi.yaml`.
 
@@ -30,7 +30,7 @@ go run ./cmd/codenet-admin init --username admin
 go run ./cmd/codenet-admin reset-password --username admin
 ```
 
-## Endpoint v0.2
+## Endpoint v0.3
 
 | Method | Endpoint | Keterangan |
 |---|---|---|
@@ -47,7 +47,7 @@ go run ./cmd/codenet-admin reset-password --username admin
 | GET | `/api/v1/ip/addresses` | Alamat IPv4/IPv6 aktual dari interface kernel |
 | GET | `/api/v1/ip/routes` | Routing table IPv4/IPv6 aktual dari kernel |
 | GET | `/api/v1/pppoe/status` | Status access concentrator |
-| GET | `/api/v1/pppoe/sessions` | Sesi pelanggan tanpa password |
+| GET | `/api/v1/pppoe/sessions` | Sesi pelanggan tanpa password; 503 jika control interface tidak tersedia |
 | GET | `/api/v1/bandwidth/profiles` | Profil limiter read-only |
 | GET | `/api/v1/bandwidth/statistics` | Statistik TC/shaper |
 
@@ -58,3 +58,10 @@ Semua endpoint router bersifat read-only. Operasi create/update/delete/disconnec
 interface, metric, protocol, scope, routing table, versi IP, tipe route, dan
 status. Kedua endpoint menggunakan provider terpilih dan tetap membutuhkan
 session administrator.
+
+`/pppoe/status` mengembalikan status service, status control interface,
+access concentrator, interface server, kesiapan jumlah sesi, dan sumber IP
+pool. Nilai pool/konsentrator tidak diisi sebagai konfigurasi hardcoded pada
+Linux Provider. `/pppoe/sessions` mengembalikan counter kernel PPP, RX/TX,
+upload/download rate, uptime, dan status interface. Error control interface
+dikembalikan sebagai HTTP 503, bukan array kosong.

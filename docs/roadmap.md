@@ -31,13 +31,17 @@
 - Role-based access control awal.
 - Hardening systemd dan packaging Debian.
 
-## v0.3 — Manajemen terbatas
+## v0.3 — Accel-PPP monitoring read-only
 
-- CRUD pelanggan PPPoE melalui service tervalidasi.
-- Disconnect session dengan policy dan audit.
-- IP Pool dan PPPoE Profile.
-- Transaction/rollback konfigurasi.
-- Pengujian integrasi VM sebelum apply.
+- [x] Adapter monitoring Accel-PPP TCP read-only dengan password file, timeout, bounded response, parser tabel, validasi, dan error eksplisit.
+- [x] Status service/control interface dan sesi PPPoE tanpa password.
+- [x] Counter PPP Linux dan rate upload/download berbasis interval.
+- [x] Deteksi TC tanpa mengklaim limiter default yang belum terverifikasi.
+- [ ] CRUD pelanggan PPPoE melalui service tervalidasi.
+- [ ] Disconnect session dengan policy dan audit.
+- [ ] IP Pool dan PPPoE Profile write support.
+- [ ] Transaction/rollback konfigurasi.
+- [ ] Pengujian sesi nyata pada VM Debian sebelum apply.
 
 ## Tahap berikutnya
 

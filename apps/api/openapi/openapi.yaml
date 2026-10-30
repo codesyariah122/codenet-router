@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: CODENET Management API
-  version: 0.2.0
-  description: API monitoring Linux read-only dengan autentikasi administrator untuk CODENET Router OS.
+  version: 0.3.0
+  description: API monitoring Linux dan Accel-PPP read-only dengan autentikasi administrator untuk CODENET Router OS.
 servers:
   - url: http://127.0.0.1:8080/api/v1
     description: Development lokal
@@ -162,13 +162,30 @@ paths:
       tags: [PPPoE]
       summary: Mengambil status Accel-PPP
       responses:
-        '200': { $ref: '#/components/responses/Success' }
+        '200':
+          description: Status service dan control interface
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties: { data: { $ref: '#/components/schemas/PPPoEStatus' } }
   /pppoe/sessions:
     get:
       tags: [PPPoE]
       summary: Mengambil sesi PPPoE tanpa data password
       responses:
-        '200': { $ref: '#/components/responses/Success' }
+        '200':
+          description: Sesi aktif; 503 bila control interface tidak tersedia
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties: { data: { type: array, items: { $ref: '#/components/schemas/PPPoESession' } } }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
   /bandwidth/profiles:
     get:
       tags: [Bandwidth]
@@ -200,6 +217,11 @@ components:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     Unauthorized:
       description: Autentikasi diperlukan atau session berakhir
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    ServiceUnavailable:
+      description: Sumber monitoring tidak tersedia
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -276,6 +298,34 @@ components:
         routing_table: { type: string }
         ip_version: { type: integer, enum: [4, 6] }
         route_type: { type: string }
+        status: { type: string }
+    PPPoEStatus:
+      type: object
+      required: [service_name, status, active_sessions, session_count_ready, control_status]
+      properties:
+        service_name: { type: string }
+        access_concentrator: { type: string }
+        server_interface: { type: string }
+        status: { type: string }
+        active_sessions: { type: integer, minimum: 0 }
+        session_count_ready: { type: boolean }
+        ip_pool: { type: string }
+        pool_source: { type: string }
+        control_status: { type: string }
+        monitoring_error: { type: string }
+    PPPoESession:
+      type: object
+      required: [username, ip_address, interface, connected_at, uptime_seconds, rx_bytes, tx_bytes, download_bps, upload_bps, status]
+      properties:
+        username: { type: string }
+        ip_address: { type: string }
+        interface: { type: string }
+        connected_at: { type: string, format: date-time }
+        uptime_seconds: { type: integer, format: int64, minimum: 0 }
+        rx_bytes: { type: integer, format: int64, minimum: 0 }
+        tx_bytes: { type: integer, format: int64, minimum: 0 }
+        download_bps: { type: integer, format: int64, minimum: 0 }
+        upload_bps: { type: integer, format: int64, minimum: 0 }
         status: { type: string }
     PPPoEStatus:
       type: object

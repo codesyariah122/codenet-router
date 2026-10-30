@@ -68,14 +68,14 @@ func (p *MockProvider) Routes(context.Context) ([]models.Route, error) {
 }
 
 func (p *MockProvider) PPPoEStatus(context.Context) (models.PPPoEStatus, error) {
-	return models.PPPoEStatus{ServiceName: "CODENET-PPPOE", AccessConcentrator: "CODENET", Status: "active", ActiveSessions: 2, Pool: "10.60.0.10-10.60.0.50"}, nil
+	return models.PPPoEStatus{ServiceName: "CODENET-PPPOE", AccessConcentrator: "CODENET", ServerInterface: "enp0s8", Status: "active", ActiveSessions: 2, SessionCountReady: true, Pool: "10.60.0.10-10.60.0.50", PoolSource: "mock", ControlStatus: "available"}, nil
 }
 
 func (p *MockProvider) PPPoESessions(context.Context) ([]models.PPPoESession, error) {
 	now := p.now()
 	return []models.PPPoESession{
-		{Username: "pelanggan-001", IP: "10.60.0.10", Interface: "ppp0", ConnectedAt: now.Add(-4*time.Hour - 18*time.Minute), UptimeSeconds: 15480, RXBytes: 580238104, TXBytes: 1294839204, Status: "online"},
-		{Username: "pelanggan-002", IP: "10.60.0.11", Interface: "ppp1", ConnectedAt: now.Add(-1*time.Hour - 52*time.Minute), UptimeSeconds: 6720, RXBytes: 297412805, TXBytes: 792017410, Status: "online"},
+		{Username: "pelanggan-001", IP: "10.60.0.10", Interface: "ppp0", ConnectedAt: now.Add(-4*time.Hour - 18*time.Minute), UptimeSeconds: 15480, RXBytes: 580238104, TXBytes: 1294839204, DownloadBPS: 6_820_000, UploadBPS: 1_940_000, Status: "online"},
+		{Username: "pelanggan-002", IP: "10.60.0.11", Interface: "ppp1", ConnectedAt: now.Add(-1*time.Hour - 52*time.Minute), UptimeSeconds: 6720, RXBytes: 297412805, TXBytes: 792017410, DownloadBPS: 3_410_000, UploadBPS: 810_000, Status: "online"},
 	}, nil
 }
 
