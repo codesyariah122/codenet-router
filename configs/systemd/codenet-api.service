@@ -11,6 +11,11 @@ ExecStart=/usr/local/lib/codenet/codenet-api
 Environment=CODENET_PROVIDER=linux
 Environment=CODENET_API_ADDRESS=127.0.0.1:8080
 Environment=CODENET_ALLOWED_ORIGIN=http://127.0.0.1
+Environment=CODENET_DB_PATH=/var/lib/codenet/codenet.db
+Environment=CODENET_COOKIE_SECURE=true
+StateDirectory=codenet
+StateDirectoryMode=0700
+UMask=0077
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
@@ -20,6 +25,12 @@ ProtectHome=true
 ProtectKernelTunables=true
 ProtectKernelModules=true
 ProtectControlGroups=true
+ProtectClock=true
+PrivateDevices=true
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+AmbientCapabilities=
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 
 [Install]

@@ -1,18 +1,72 @@
 openapi: 3.1.0
 info:
   title: CODENET Management API
-  version: 0.1.0
-  description: API monitoring read-only untuk CODENET Router OS.
+  version: 0.1.1
+  description: API monitoring read-only dengan autentikasi administrator untuk CODENET Router OS.
 servers:
   - url: http://127.0.0.1:8080/api/v1
     description: Development lokal
 tags:
+  - name: Authentication
   - name: Dashboard
   - name: System
   - name: Interfaces
   - name: PPPoE
   - name: Bandwidth
 paths:
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login administrator
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [username, password]
+              properties:
+                username: { type: string, minLength: 3, maxLength: 64 }
+                password: { type: string, minLength: 1, maxLength: 1024, format: password }
+      responses:
+        '200':
+          description: Login berhasil dan cookie session HttpOnly dibuat
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429':
+          description: Batas percobaan login terlampaui
+  /auth/session:
+    get:
+      tags: [Authentication]
+      summary: Membaca session administrator aktif
+      responses:
+        '200':
+          description: Session aktif
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuthResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Membatalkan session administrator
+      parameters:
+        - name: X-CSRF-Token
+          in: header
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Token CSRF tidak valid
   /dashboard:
     get:
       tags: [Dashboard]
@@ -97,6 +151,11 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Success' }
 components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: codenet_session
   responses:
     Success:
       description: Berhasil
@@ -105,6 +164,11 @@ components:
           schema: { $ref: '#/components/schemas/SuccessEnvelope' }
     NotFound:
       description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+    Unauthorized:
+      description: Autentikasi diperlukan atau session berakhir
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorEnvelope' }
@@ -193,3 +257,20 @@ components:
         - $ref: '#/components/schemas/SuccessEnvelope'
         - type: object
           properties: { data: { $ref: '#/components/schemas/SystemInfo' } }
+    AuthResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [admin, csrf_token, expires_at]
+              properties:
+                admin:
+                  type: object
+                  required: [username]
+                  properties: { username: { type: string } }
+                csrf_token: { type: string }
+                expires_at: { type: string, format: date-time }
+security:
+  - cookieAuth: []

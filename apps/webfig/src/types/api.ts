@@ -9,3 +9,4 @@ export interface BandwidthProfile { name: string; download_bps: number; upload_b
 export interface BandwidthStatistic { username: string; ip_address: string; interface: string; download_limit_bps: number; upload_limit_bps: number; download_usage_bps: number; upload_usage_bps: number; limiter_status: string }
 export interface TrafficPoint { timestamp: string; rx_bps: number; tx_bps: number }
 export interface DashboardData { system: SystemInfo; resources: ResourceUsage; interfaces: NetworkInterface[]; pppoe: PPPoEStatus; traffic_history: TrafficPoint[] }
+export interface AuthSession { admin: { username: string }; csrf_token: string; expires_at: string }

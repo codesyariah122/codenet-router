@@ -11,11 +11,19 @@
 - [ ] Parser socket kontrol Accel-PPP.
 - [ ] Sampling traffic time-series di backend.
 
-## v0.2 — Security dan persistence
+## v0.1.1 — Security hardening
 
-- Session authentication + HttpOnly Cookie.
-- CSRF protection, rate limiting, dan audit log.
-- SQLite untuk user admin, session, dan konfigurasi aplikasi.
+- [x] Login administrator melalui WebFig.
+- [x] Argon2id + SQLite dengan database permission `0600`.
+- [x] Session cookie HttpOnly, SameSite, expiry, logout, dan reset password CLI.
+- [x] CSRF protection untuk method unsafe dan rate limiting login.
+- [x] Linux provider timeout, bounded reads/output, fixed executable path, dan error handling.
+- [x] Audit unit/backend/frontend.
+- [ ] HTTPS/reverse proxy dan audit log security event pada deployment Debian.
+
+## v0.2 — Linux integration dan persistence lanjutan
+
+- Sampling traffic time-series di backend.
 - Role-based access control awal.
 - Hardening systemd dan packaging Debian.
 

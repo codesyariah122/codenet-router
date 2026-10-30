@@ -5,6 +5,7 @@ package providers
 import (
 	"bufio"
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -21,17 +22,20 @@ type LinuxProvider struct{}
 
 func NewLinux() *LinuxProvider { return &LinuxProvider{} }
 
-func (p *LinuxProvider) SystemInfo(context.Context) (models.SystemInfo, error) {
+func (p *LinuxProvider) SystemInfo(ctx context.Context) (models.SystemInfo, error) {
 	hostname, err := os.Hostname()
 	if err != nil {
 		return models.SystemInfo{}, err
 	}
-	osName, version := readOSRelease()
-	kernelBytes, err := os.ReadFile("/proc/sys/kernel/osrelease")
+	osName, version, err := readOSRelease(ctx)
 	if err != nil {
 		return models.SystemInfo{}, err
 	}
-	uptimeBytes, err := os.ReadFile("/proc/uptime")
+	kernelBytes, err := readLimitedFile(ctx, "/proc/sys/kernel/osrelease", 4096)
+	if err != nil {
+		return models.SystemInfo{}, err
+	}
+	uptimeBytes, err := readLimitedFile(ctx, "/proc/uptime", 4096)
 	if err != nil {
 		return models.SystemInfo{}, err
 	}
@@ -39,25 +43,31 @@ func (p *LinuxProvider) SystemInfo(context.Context) (models.SystemInfo, error) {
 	return models.SystemInfo{Hostname: hostname, OS: osName, Version: version, Kernel: strings.TrimSpace(string(kernelBytes)), Uptime: int64(uptime)}, nil
 }
 
-func readOSRelease() (string, string) {
+func readOSRelease(ctx context.Context) (string, string, error) {
 	f, err := os.Open("/etc/os-release")
 	if err != nil {
-		return "Linux", "unknown"
+		return "", "", fmt.Errorf("membuka os-release: %w", err)
 	}
 	defer f.Close()
 	values := map[string]string{}
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
+		if err := ctx.Err(); err != nil {
+			return "", "", err
+		}
 		parts := strings.SplitN(scanner.Text(), "=", 2)
 		if len(parts) == 2 {
 			values[parts[0]] = strings.Trim(parts[1], "\"")
 		}
 	}
-	return values["PRETTY_NAME"], values["VERSION_ID"]
+	if err := scanner.Err(); err != nil {
+		return "", "", fmt.Errorf("membaca os-release: %w", err)
+	}
+	return values["PRETTY_NAME"], values["VERSION_ID"], nil
 }
 
-func (p *LinuxProvider) ResourceUsage(context.Context) (models.ResourceUsage, error) {
-	mem, err := os.ReadFile("/proc/meminfo")
+func (p *LinuxProvider) ResourceUsage(ctx context.Context) (models.ResourceUsage, error) {
+	mem, err := readLimitedFile(ctx, "/proc/meminfo", 256*1024)
 	if err != nil {
 		return models.ResourceUsage{}, err
 	}
@@ -69,13 +79,13 @@ func (p *LinuxProvider) ResourceUsage(context.Context) (models.ResourceUsage, er
 		memoryPercent = float64(used) / float64(total) * 100
 	}
 	// Nilai CPU adalah snapshot load rata-rata 1 menit yang dinormalisasi terhadap jumlah CPU.
-	load, err := os.ReadFile("/proc/loadavg")
+	load, err := readLimitedFile(ctx, "/proc/loadavg", 4096)
 	if err != nil {
 		return models.ResourceUsage{}, err
 	}
 	loadOne, _ := strconv.ParseFloat(strings.Fields(string(load))[0], 64)
 	cpuCount := 1
-	if data, e := os.ReadFile("/proc/cpuinfo"); e == nil {
+	if data, e := readLimitedFile(ctx, "/proc/cpuinfo", 4*1024*1024); e == nil {
 		cpuCount = strings.Count(string(data), "processor\t:")
 		if cpuCount < 1 {
 			cpuCount = 1
@@ -94,12 +104,17 @@ func (p *LinuxProvider) Services(ctx context.Context) ([]models.ServiceStatus, e
 	for _, item := range names {
 		status := "unknown"
 		cmdCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		output, err := exec.CommandContext(cmdCtx, "systemctl", "is-active", item.unit).Output()
+		var output limitedBuffer
+		output.max = 64 * 1024
+		command := exec.CommandContext(cmdCtx, "/usr/bin/systemctl", "is-active", item.unit)
+		command.Stdout = &output
+		command.Stderr = &output
+		err := command.Run()
 		cancel()
 		if err == nil {
-			status = strings.TrimSpace(string(output))
-		} else if len(output) > 0 {
-			status = strings.TrimSpace(string(output))
+			status = strings.TrimSpace(output.String())
+		} else if output.Len() > 0 {
+			status = strings.TrimSpace(output.String())
 		}
 		result = append(result, models.ServiceStatus{Name: item.unit, DisplayName: item.display, Status: status, Description: item.description})
 	}
@@ -113,10 +128,16 @@ func (p *LinuxProvider) Interfaces(ctx context.Context) ([]models.Interface, err
 	}
 	result := make([]models.Interface, 0, len(links))
 	for _, link := range links {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if link.Flags&net.FlagLoopback != 0 {
 			continue
 		}
-		addrs, _ := link.Addrs()
+		addrs, err := link.Addrs()
+		if err != nil {
+			return nil, fmt.Errorf("membaca alamat interface %s: %w", link.Name, err)
+		}
 		ipv4 := []string{}
 		for _, addr := range addrs {
 			if ip, _, e := net.ParseCIDR(addr.String()); e == nil && ip.To4() != nil {
@@ -136,22 +157,29 @@ func (p *LinuxProvider) Interfaces(ctx context.Context) ([]models.Interface, err
 		} else if link.Name == "enp0s8" {
 			role = "LAN"
 		}
-		stats := readInterfaceStats(link.Name)
+		stats, err := readInterfaceStats(ctx, link.Name)
+		if err != nil {
+			return nil, err
+		}
 		result = append(result, models.Interface{Name: link.Name, Role: role, Type: kind, MAC: link.HardwareAddr.String(), IPv4: ipv4, Status: status, MTU: link.MTU, RXBytes: stats[0], TXBytes: stats[1], RXPackets: stats[2], TXPackets: stats[3]})
 	}
 	return result, nil
 }
 
-func readInterfaceStats(name string) [4]uint64 {
+func readInterfaceStats(ctx context.Context, name string) ([4]uint64, error) {
 	keys := []string{"rx_bytes", "tx_bytes", "rx_packets", "tx_packets"}
 	var out [4]uint64
 	for i, key := range keys {
-		data, err := os.ReadFile("/sys/class/net/" + name + "/statistics/" + key)
-		if err == nil {
-			out[i], _ = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+		data, err := readLimitedFile(ctx, "/sys/class/net/"+name+"/statistics/"+key, 4096)
+		if err != nil {
+			return out, fmt.Errorf("membaca statistik interface %s: %w", name, err)
+		}
+		out[i], err = strconv.ParseUint(strings.TrimSpace(string(data)), 10, 64)
+		if err != nil {
+			return out, fmt.Errorf("mem-parsing statistik interface %s: %w", name, err)
 		}
 	}
-	return out
+	return out, nil
 }
 
 func (p *LinuxProvider) Interface(ctx context.Context, name string) (models.Interface, error) {
@@ -178,7 +206,10 @@ func (p *LinuxProvider) PPPoEStatus(ctx context.Context) (models.PPPoEStatus, er
 			status = service.Status
 		}
 	}
-	sessions, _ := p.PPPoESessions(ctx)
+	sessions, err := p.PPPoESessions(ctx)
+	if err != nil {
+		return models.PPPoEStatus{}, err
+	}
 	return models.PPPoEStatus{ServiceName: "CODENET-PPPOE", AccessConcentrator: "CODENET", Status: status, ActiveSessions: len(sessions), Pool: "10.60.0.10-10.60.0.50"}, nil
 }
 
@@ -203,10 +234,15 @@ func (p *LinuxProvider) BandwidthStatistics(ctx context.Context) ([]models.Bandw
 			continue
 		}
 		cmdCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		output, cmdErr := exec.CommandContext(cmdCtx, "tc", "-s", "qdisc", "show", "dev", item.Name).CombinedOutput()
+		var output limitedBuffer
+		output.max = 1024 * 1024
+		command := exec.CommandContext(cmdCtx, "/usr/sbin/tc", "-s", "qdisc", "show", "dev", item.Name)
+		command.Stdout = &output
+		command.Stderr = &output
+		cmdErr := command.Run()
 		cancel()
 		limiter := "unavailable"
-		if cmdErr == nil && len(output) > 0 {
+		if cmdErr == nil && output.Len() > 0 {
 			limiter = "active"
 		}
 		stats = append(stats, models.BandwidthStatistic{Interface: item.Name, DownloadLimit: 10_000_000, UploadLimit: 5_000_000, LimiterStatus: limiter})
@@ -214,6 +250,9 @@ func (p *LinuxProvider) BandwidthStatistics(ctx context.Context) ([]models.Bandw
 	return stats, nil
 }
 
-func (p *LinuxProvider) TrafficHistory(context.Context) ([]models.TrafficPoint, error) {
+func (p *LinuxProvider) TrafficHistory(ctx context.Context) ([]models.TrafficPoint, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	return []models.TrafficPoint{}, nil
 }
