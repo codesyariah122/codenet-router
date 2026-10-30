@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * { @apply border-slate-200 dark:border-slate-800; }
+  body { @apply m-0 min-w-[320px] bg-slate-50 font-sans antialiased dark:bg-[#07101d]; }
+  button, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950; }
+  table { @apply w-full min-w-[760px] text-left text-sm; }
+  th { @apply bg-slate-50 px-5 py-3 text-[10px] font-bold uppercase tracking-[.14em] text-slate-400 dark:bg-slate-900/70; }
+  td { @apply border-t border-slate-200 px-5 py-4 text-slate-600 dark:border-slate-800 dark:text-slate-300; }
+  td b { @apply block font-semibold text-slate-900 dark:text-white; }
+  td small, dd small { @apply mt-1 block text-xs font-normal text-slate-400; }
+  dt { @apply text-xs font-medium text-slate-400; }
+  dd { @apply mt-1 font-semibold text-slate-800 dark:text-slate-200; }
+}
+@layer components {
+  .panel { @apply rounded-2xl border border-slate-200/90 bg-white shadow-panel dark:border-slate-800/80 dark:bg-[#0b1726] dark:shadow-none; }
+  .button-secondary { @apply inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300; }
+  .metric-label { @apply text-[10px] font-bold uppercase tracking-[.15em] text-slate-400; }
+  .progress { @apply mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800; }
+  .progress i { @apply block h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300; }
+}

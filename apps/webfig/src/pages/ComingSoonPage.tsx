@@ -1,0 +1,3 @@
+import { Construction } from 'lucide-react'
+import { useParams } from 'react-router-dom'
+export function ComingSoonPage(){const {feature}=useParams();return <div className="grid min-h-[65vh] place-items-center"><div className="max-w-md text-center"><div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-300"><Construction size={28}/></div><p className="mt-6 text-xs font-bold uppercase tracking-[.2em] text-amber-500">Coming soon</p><h1 className="mt-2 text-3xl font-bold capitalize">{feature}</h1><p className="mt-3 text-sm leading-6 text-slate-500">Modul ini sudah masuk arsitektur navigasi, tetapi belum diimplementasikan pada WebFig v0.1. Tidak ada data palsu yang ditampilkan.</p></div></div>}

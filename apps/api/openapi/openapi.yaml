@@ -1,0 +1,195 @@
+openapi: 3.1.0
+info:
+  title: CODENET Management API
+  version: 0.1.0
+  description: API monitoring read-only untuk CODENET Router OS.
+servers:
+  - url: http://127.0.0.1:8080/api/v1
+    description: Development lokal
+tags:
+  - name: Dashboard
+  - name: System
+  - name: Interfaces
+  - name: PPPoE
+  - name: Bandwidth
+paths:
+  /dashboard:
+    get:
+      tags: [Dashboard]
+      summary: Mengambil data agregat dashboard
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DashboardResponse' }
+  /system/info:
+    get:
+      tags: [System]
+      summary: Mengambil informasi sistem
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SystemInfoResponse' }
+  /system/resources:
+    get:
+      tags: [System]
+      summary: Mengambil penggunaan CPU dan memori
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /system/services:
+    get:
+      tags: [System]
+      summary: Mengambil status layanan inti
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /interfaces:
+    get:
+      tags: [Interfaces]
+      summary: Mengambil seluruh interface
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/NetworkInterface' } }
+  /interfaces/{name}:
+    get:
+      tags: [Interfaces]
+      summary: Mengambil satu interface
+      parameters:
+        - name: name
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-zA-Z0-9_.:-]+$' }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /pppoe/status:
+    get:
+      tags: [PPPoE]
+      summary: Mengambil status Accel-PPP
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /pppoe/sessions:
+    get:
+      tags: [PPPoE]
+      summary: Mengambil sesi PPPoE tanpa data password
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /bandwidth/profiles:
+    get:
+      tags: [Bandwidth]
+      summary: Mengambil profil bandwidth
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+  /bandwidth/statistics:
+    get:
+      tags: [Bandwidth]
+      summary: Mengambil statistik limiter
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+components:
+  responses:
+    Success:
+      description: Berhasil
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    NotFound:
+      description: Resource tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    SuccessEnvelope:
+      type: object
+      required: [success, message, data]
+      properties:
+        success: { type: boolean, const: true }
+        message: { type: string }
+        data: {}
+    ErrorEnvelope:
+      type: object
+      required: [success, message, error]
+      properties:
+        success: { type: boolean, const: false }
+        message: { type: string }
+        error:
+          type: object
+          required: [code]
+          properties: { code: { type: string } }
+    SystemInfo:
+      type: object
+      required: [hostname, os, version, kernel, uptime_seconds]
+      properties:
+        hostname: { type: string }
+        os: { type: string }
+        version: { type: string }
+        kernel: { type: string }
+        uptime_seconds: { type: integer, format: int64, minimum: 0 }
+    ResourceUsage:
+      type: object
+      required: [cpu_percent, memory_percent, memory_used_bytes, memory_total_bytes]
+      properties:
+        cpu_percent: { type: number, minimum: 0, maximum: 100 }
+        memory_percent: { type: number, minimum: 0, maximum: 100 }
+        memory_used_bytes: { type: integer, format: int64, minimum: 0 }
+        memory_total_bytes: { type: integer, format: int64, minimum: 0 }
+    NetworkInterface:
+      type: object
+      required: [name, role, type, mac_address, ipv4_addresses, status, mtu, rx_bytes, tx_bytes, rx_packets, tx_packets]
+      properties:
+        name: { type: string }
+        role: { type: string }
+        type: { type: string }
+        mac_address: { type: string }
+        ipv4_addresses: { type: array, items: { type: string } }
+        status: { type: string, enum: [up, down, unknown] }
+        mtu: { type: integer }
+        rx_bytes: { type: integer, format: int64 }
+        tx_bytes: { type: integer, format: int64 }
+        rx_packets: { type: integer, format: int64 }
+        tx_packets: { type: integer, format: int64 }
+    PPPoEStatus:
+      type: object
+      required: [service_name, access_concentrator, status, active_sessions, ip_pool]
+      properties:
+        service_name: { type: string }
+        access_concentrator: { type: string }
+        status: { type: string }
+        active_sessions: { type: integer, minimum: 0 }
+        ip_pool: { type: string }
+    TrafficPoint:
+      type: object
+      required: [timestamp, rx_bps, tx_bps]
+      properties:
+        timestamp: { type: string, format: date-time }
+        rx_bps: { type: integer, format: int64 }
+        tx_bps: { type: integer, format: int64 }
+    DashboardData:
+      type: object
+      required: [system, resources, interfaces, pppoe, traffic_history]
+      properties:
+        system: { $ref: '#/components/schemas/SystemInfo' }
+        resources: { $ref: '#/components/schemas/ResourceUsage' }
+        interfaces: { type: array, items: { $ref: '#/components/schemas/NetworkInterface' } }
+        pppoe: { $ref: '#/components/schemas/PPPoEStatus' }
+        traffic_history: { type: array, items: { $ref: '#/components/schemas/TrafficPoint' } }
+    DashboardResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/DashboardData' } }
+    SystemInfoResponse:
+      allOf:
+        - $ref: '#/components/schemas/SuccessEnvelope'
+        - type: object
+          properties: { data: { $ref: '#/components/schemas/SystemInfo' } }
