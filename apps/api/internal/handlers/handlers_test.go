@@ -95,6 +95,22 @@ func TestEndpointMonitoringMemerlukanAutentikasi(t *testing.T) {
 	}
 }
 
+func TestEndpointIPMemerlukanAutentikasiDanMengembalikanData(t *testing.T) {
+	handler := testHandler(t, auth.Config{}, false)
+	for _, path := range []string{"/api/v1/ip/addresses", "/api/v1/ip/routes"} {
+		if code := perform(handler, http.MethodGet, path, nil, nil, "").Code; code != http.StatusUnauthorized {
+			t.Fatalf("%s tanpa autentikasi status=%d", path, code)
+		}
+	}
+	cookie, _ := login(t, handler)
+	for _, path := range []string{"/api/v1/ip/addresses", "/api/v1/ip/routes"} {
+		recorder := perform(handler, http.MethodGet, path, nil, cookie, "")
+		if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"success":true`) {
+			t.Fatalf("%s status=%d body=%s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
 func TestLoginBerhasilDanCookieAman(t *testing.T) {
 	handler := testHandler(t, auth.Config{}, true)
 	cookie, csrf := login(t, handler)

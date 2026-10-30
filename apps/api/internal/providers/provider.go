@@ -14,6 +14,8 @@ type RouterProvider interface {
 	Services(context.Context) ([]models.ServiceStatus, error)
 	Interfaces(context.Context) ([]models.Interface, error)
 	Interface(context.Context, string) (models.Interface, error)
+	IPAddresses(context.Context) ([]models.IPAddress, error)
+	Routes(context.Context) ([]models.Route, error)
 	PPPoEStatus(context.Context) (models.PPPoEStatus, error)
 	PPPoESessions(context.Context) ([]models.PPPoESession, error)
 	BandwidthProfiles(context.Context) ([]models.BandwidthProfile, error)

@@ -21,9 +21,13 @@
 - [x] Audit unit/backend/frontend.
 - [ ] HTTPS/reverse proxy dan audit log security event pada deployment Debian.
 
-## v0.2 — Linux integration dan persistence lanjutan
+## v0.2 — Linux integration dan IP read-only
 
-- Sampling traffic time-series di backend.
+- [x] Linux Provider membaca resource, interface, IP address, route, systemd, dan TC secara read-only.
+- [x] Modul WebFig IP Addresses dan IP Routes dengan filter, refresh, detail, loading/error/empty state.
+- [x] Dashboard menggunakan data provider aktif; traffic Linux memakai sampling interval antar-request.
+- [ ] Sampling traffic persisten/time-series di backend.
+- [ ] Implementasi CRUD IP/route dengan transaction, safe apply, rollback, dan audit.
 - Role-based access control awal.
 - Hardening systemd dan packaging Debian.
 
@@ -37,7 +41,7 @@
 
 ## Tahap berikutnya
 
-- Address dan route management.
+- Address dan route management (CRUD aman setelah desain v0.2 divalidasi).
 - Firewall policy dengan model deklaratif.
 - Backup/restore konfigurasi.
 - Installer ISO dan upgrade atomik.

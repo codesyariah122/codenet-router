@@ -10,11 +10,11 @@ Repository ini adalah fondasi CODENET Router OS. Semua perubahan harus mempertah
 2. Gunakan bahasa Indonesia untuk dokumentasi, komentar yang menjelaskan keputusan, UI, dan laporan perubahan.
 3. Jangan membaca, mencatat, atau mengirim isi `/etc/codenet/chap-secrets`.
 4. Jangan menerima command shell atau argumen command bebas dari HTTP request.
-5. Jangan mengubah nftables, interface, routing, TC, Accel-PPP, atau unit systemd pada v0.1.
+5. Jangan mengubah nftables, interface, routing, TC, Accel-PPP, atau unit systemd pada v0.2.
 6. Jangan menyimpan kredensial nyata, token, atau password di repository.
 7. Handler hanya berbicara dengan service/provider; akses `/proc`, `/sys`, dan command Linux berada di provider.
 8. Semua endpoint baru harus memiliki pengujian untuk respons sukses dan error relevan.
-9. WebFig tidak boleh menampilkan fitur belum tersedia seolah-olah berfungsi; gunakan label `Coming Soon`.
+9. WebFig tidak boleh menampilkan fitur belum tersedia seolah-olah berfungsi; gunakan label `Coming Soon`. Modul IP Addresses dan IP Routes v0.2 adalah read-only.
 10. Jangan melakukan deployment otomatis ke router.
 11. Seluruh endpoint `/api/v1/*` harus protected oleh session administrator; hanya login dan health minimal yang publik.
 12. Jangan menyimpan session token atau CSRF token di localStorage/sessionStorage; session token harus tetap HttpOnly.

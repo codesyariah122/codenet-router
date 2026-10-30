@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: CODENET Management API
-  version: 0.1.1
-  description: API monitoring read-only dengan autentikasi administrator untuk CODENET Router OS.
+  version: 0.2.0
+  description: API monitoring Linux read-only dengan autentikasi administrator untuk CODENET Router OS.
 servers:
   - url: http://127.0.0.1:8080/api/v1
     description: Development lokal
@@ -11,6 +11,7 @@ tags:
   - name: Dashboard
   - name: System
   - name: Interfaces
+  - name: IP
   - name: PPPoE
   - name: Bandwidth
 paths:
@@ -126,6 +127,36 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Success' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /ip/addresses:
+    get:
+      tags: [IP]
+      summary: Mengambil alamat IPv4 dan IPv6 dari kernel
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/IPAddress' } }
+  /ip/routes:
+    get:
+      tags: [IP]
+      summary: Mengambil routing table IPv4 dan IPv6
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties:
+                      data: { type: array, items: { $ref: '#/components/schemas/Route' } }
   /pppoe/status:
     get:
       tags: [PPPoE]
@@ -222,6 +253,30 @@ components:
         tx_bytes: { type: integer, format: int64 }
         rx_packets: { type: integer, format: int64 }
         tx_packets: { type: integer, format: int64 }
+    IPAddress:
+      type: object
+      required: [address, network, interface, ip_version, scope, flags]
+      properties:
+        address: { type: string }
+        network: { type: string }
+        interface: { type: string }
+        ip_version: { type: integer, enum: [4, 6] }
+        scope: { type: string }
+        flags: { type: array, items: { type: string } }
+    Route:
+      type: object
+      required: [destination, metric, protocol, routing_table, ip_version, route_type, status]
+      properties:
+        destination: { type: string }
+        gateway: { type: string }
+        interface: { type: string }
+        metric: { type: integer, format: int64, minimum: 0 }
+        protocol: { type: string }
+        scope: { type: string }
+        routing_table: { type: string }
+        ip_version: { type: integer, enum: [4, 6] }
+        route_type: { type: string }
+        status: { type: string }
     PPPoEStatus:
       type: object
       required: [service_name, access_concentrator, status, active_sessions, ip_pool]

@@ -1,4 +1,4 @@
-import type { ApiResponse, AuthSession, BandwidthProfile, BandwidthStatistic, DashboardData, NetworkInterface, PPPoESession, PPPoEStatus, ResourceUsage, ServiceStatus, SystemInfo } from '../types/api'
+import type { ApiResponse, AuthSession, BandwidthProfile, BandwidthStatistic, DashboardData, IPAddress, NetworkInterface, PPPoESession, PPPoEStatus, ResourceUsage, Route, ServiceStatus, SystemInfo } from '../types/api'
 
 const apiBase = import.meta.env.VITE_API_URL ?? ''
 
@@ -29,6 +29,8 @@ export const api = {
   resources: () => get<ResourceUsage>('/api/v1/system/resources'),
   services: () => get<ServiceStatus[]>('/api/v1/system/services'),
   interfaces: () => get<NetworkInterface[]>('/api/v1/interfaces'),
+  ipAddresses: () => get<IPAddress[]>('/api/v1/ip/addresses'),
+  routes: () => get<Route[]>('/api/v1/ip/routes'),
   pppoeStatus: () => get<PPPoEStatus>('/api/v1/pppoe/status'),
   pppoeSessions: () => get<PPPoESession[]>('/api/v1/pppoe/sessions'),
   bandwidthProfiles: () => get<BandwidthProfile[]>('/api/v1/bandwidth/profiles'),

@@ -1,4 +1,4 @@
-# Management API v0.1.1
+# Management API v0.2
 
 Base path: `/api/v1`. Kontrak mesin tersedia di `apps/api/openapi/openapi.yaml`.
 
@@ -30,7 +30,7 @@ go run ./cmd/codenet-admin init --username admin
 go run ./cmd/codenet-admin reset-password --username admin
 ```
 
-## Endpoint v0.1.1
+## Endpoint v0.2
 
 | Method | Endpoint | Keterangan |
 |---|---|---|
@@ -44,9 +44,17 @@ go run ./cmd/codenet-admin reset-password --username admin
 | GET | `/api/v1/system/services` | systemd, Accel-PPP, nftables |
 | GET | `/api/v1/interfaces` | Semua interface |
 | GET | `/api/v1/interfaces/{name}` | Detail interface |
+| GET | `/api/v1/ip/addresses` | Alamat IPv4/IPv6 aktual dari interface kernel |
+| GET | `/api/v1/ip/routes` | Routing table IPv4/IPv6 aktual dari kernel |
 | GET | `/api/v1/pppoe/status` | Status access concentrator |
 | GET | `/api/v1/pppoe/sessions` | Sesi pelanggan tanpa password |
 | GET | `/api/v1/bandwidth/profiles` | Profil limiter read-only |
 | GET | `/api/v1/bandwidth/statistics` | Statistik TC/shaper |
 
 Semua endpoint router bersifat read-only. Operasi create/update/delete/disconnect belum tersedia. Kontrak lengkap berada di `apps/api/openapi/openapi.yaml`.
+
+`/ip/addresses` mengembalikan `address`, `network`, `interface`, `ip_version`,
+`scope`, dan `flags`. `/ip/routes` mengembalikan destination, gateway,
+interface, metric, protocol, scope, routing table, versi IP, tipe route, dan
+status. Kedua endpoint menggunakan provider terpilih dan tetap membutuhkan
+session administrator.

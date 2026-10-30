@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/codesyariah/codenet-router/apps/api/internal/models"
@@ -18,7 +19,12 @@ import (
 
 // LinuxProvider hanya menjalankan operasi pembacaan yang telah ditentukan.
 // Tidak ada input pengguna yang diteruskan sebagai shell command.
-type LinuxProvider struct{}
+type LinuxProvider struct {
+	mu          sync.Mutex
+	lastSample  time.Time
+	lastRXBytes uint64
+	lastTXBytes uint64
+}
 
 func NewLinux() *LinuxProvider { return &LinuxProvider{} }
 
@@ -78,22 +84,14 @@ func (p *LinuxProvider) ResourceUsage(ctx context.Context) (models.ResourceUsage
 	if total > 0 {
 		memoryPercent = float64(used) / float64(total) * 100
 	}
-	// Nilai CPU adalah snapshot load rata-rata 1 menit yang dinormalisasi terhadap jumlah CPU.
-	load, err := readLimitedFile(ctx, "/proc/loadavg", 4096)
+	// Utilisasi dihitung dari counter kumulatif kernel; bukan angka simulasi.
+	cpuData, err := readLimitedFile(ctx, "/proc/stat", 64*1024)
 	if err != nil {
 		return models.ResourceUsage{}, err
 	}
-	loadOne, _ := strconv.ParseFloat(strings.Fields(string(load))[0], 64)
-	cpuCount := 1
-	if data, e := readLimitedFile(ctx, "/proc/cpuinfo", 4*1024*1024); e == nil {
-		cpuCount = strings.Count(string(data), "processor\t:")
-		if cpuCount < 1 {
-			cpuCount = 1
-		}
-	}
-	cpuPercent := loadOne / float64(cpuCount) * 100
-	if cpuPercent > 100 {
-		cpuPercent = 100
+	cpuPercent := 0.0
+	if busy, total, ok := parseCPUStat(cpuData); ok && total > 0 {
+		cpuPercent = float64(busy) / float64(total) * 100
 	}
 	return models.ResourceUsage{CPUPercent: cpuPercent, MemoryPercent: memoryPercent, MemoryUsed: used, MemoryTotal: total}, nil
 }
@@ -251,8 +249,26 @@ func (p *LinuxProvider) BandwidthStatistics(ctx context.Context) ([]models.Bandw
 }
 
 func (p *LinuxProvider) TrafficHistory(ctx context.Context) ([]models.TrafficPoint, error) {
-	if err := ctx.Err(); err != nil {
+	interfaces, err := p.Interfaces(ctx)
+	if err != nil {
 		return nil, err
 	}
-	return []models.TrafficPoint{}, nil
+	var rx, tx uint64
+	for _, item := range interfaces {
+		rx += item.RXBytes
+		tx += item.TXBytes
+	}
+	now := time.Now()
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	var rxRate, txRate uint64
+	if !p.lastSample.IsZero() {
+		seconds := now.Sub(p.lastSample).Seconds()
+		if seconds > 0 && rx >= p.lastRXBytes && tx >= p.lastTXBytes {
+			rxRate = uint64(float64(rx-p.lastRXBytes) / seconds)
+			txRate = uint64(float64(tx-p.lastTXBytes) / seconds)
+		}
+	}
+	p.lastSample, p.lastRXBytes, p.lastTXBytes = now, rx, tx
+	return []models.TrafficPoint{{Timestamp: now, RXBPS: rxRate, TXBPS: txRate}}, nil
 }

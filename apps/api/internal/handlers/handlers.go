@@ -55,6 +55,8 @@ func New(service *services.RouterService, authService *auth.Service, logger *slo
 	protected.HandleFunc("GET /api/v1/system/services", api.services)
 	protected.HandleFunc("GET /api/v1/interfaces", api.interfaces)
 	protected.HandleFunc("GET /api/v1/interfaces/{name}", api.interfaceByName)
+	protected.HandleFunc("GET /api/v1/ip/addresses", api.ipAddresses)
+	protected.HandleFunc("GET /api/v1/ip/routes", api.routes)
 	protected.HandleFunc("GET /api/v1/pppoe/status", api.pppoeStatus)
 	protected.HandleFunc("GET /api/v1/pppoe/sessions", api.pppoeSessions)
 	protected.HandleFunc("GET /api/v1/bandwidth/profiles", api.bandwidthProfiles)
@@ -207,6 +209,24 @@ func (a *API) interfaceByName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.write(w, 200, "Interface berhasil diambil", data)
+}
+
+func (a *API) ipAddresses(w http.ResponseWriter, r *http.Request) {
+	data, err := a.service.IPAddresses(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.write(w, http.StatusOK, "Daftar IP address berhasil diambil", data)
+}
+
+func (a *API) routes(w http.ResponseWriter, r *http.Request) {
+	data, err := a.service.Routes(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	a.write(w, http.StatusOK, "Daftar route berhasil diambil", data)
 }
 
 func validInterfaceName(name string) bool {

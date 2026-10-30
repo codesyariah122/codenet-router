@@ -6,6 +6,7 @@
 cd apps/api
 go run ./cmd/codenet-admin init --username admin
 go test ./...
+go test -race ./...
 go run .
 ```
 
@@ -23,6 +24,10 @@ Environment yang didukung:
 | `CODENET_LOGIN_WINDOW` | `15m` | Jendela rate limiting |
 
 Mode mock tidak membutuhkan Linux, root, systemd, tc, atau Accel-PPP.
+
+Untuk memeriksa provider Linux tanpa mengubah router, jalankan test pada host
+Linux/VM terisolasi. Endpoint IP memakai `GET /api/v1/ip/addresses` dan
+`GET /api/v1/ip/routes`; keduanya tetap membutuhkan session administrator.
 
 Jangan memakai password contoh pada dokumentasi. Password init/reset dibaca tanpa echo; gunakan `--password-stdin` hanya jika stdin dikelola dengan aman dan berisi dua baris password yang sama. Database development otomatis dibuat dengan permission `0600` dan sudah di-ignore Git.
 

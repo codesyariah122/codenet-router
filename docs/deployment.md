@@ -43,6 +43,12 @@ Contoh unit di `configs/systemd/codenet-api.service` harus ditinjau dan disesuai
 
 Unit contoh memakai `StateDirectory=codenet`, `NoNewPrivileges`, capability set kosong, `ProtectSystem=strict`, dan bind loopback. API tidak membutuhkan root. Jangan menambahkan `sudo` ke handler atau memberi capability `CAP_NET_ADMIN`; informasi `/proc`, `/sys`, interface, systemd, dan TC dibaca dengan privilege service yang tersedia.
 
-## Batas v0.1
+## Batas v0.2
 
-Pembacaan sesi Accel-PPP nyata belum diaktifkan karena kontrak socket kontrol perlu divalidasi terhadap instalasi router. API akan mengembalikan daftar kosong, bukan membuat data palsu. Statistik TC mendeteksi qdisc pada interface PPP, tetapi parsing detail byte-rate masih menjadi roadmap. Integrasi ke Debian 13 harus dilakukan setelah audit VM dan pengujian privilege terisolasi; tidak termasuk dalam task ini.
+IP Addresses dan IP Routes membaca kernel secara read-only melalui provider
+Linux. Tidak ada operasi konfigurasi IP/route. Pembacaan sesi Accel-PPP nyata
+belum diaktifkan karena kontrak socket kontrol perlu divalidasi terhadap
+instalasi router. API akan mengembalikan daftar kosong, bukan membuat data
+palsu. Statistik TC mendeteksi qdisc pada interface PPP, tetapi parsing detail
+byte-rate masih menjadi roadmap. Integrasi ke Debian 13 harus dilakukan setelah
+audit VM dan pengujian privilege terisolasi; tidak termasuk dalam task ini.

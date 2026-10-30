@@ -38,6 +38,28 @@ type Interface struct {
 	TXPackets uint64   `json:"tx_packets"`
 }
 
+type IPAddress struct {
+	Address   string   `json:"address"`
+	Network   string   `json:"network"`
+	Interface string   `json:"interface"`
+	Version   int      `json:"ip_version"`
+	Scope     string   `json:"scope"`
+	Flags     []string `json:"flags"`
+}
+
+type Route struct {
+	Destination string `json:"destination"`
+	Gateway     string `json:"gateway,omitempty"`
+	Interface   string `json:"interface,omitempty"`
+	Metric      uint32 `json:"metric,omitempty"`
+	Protocol    string `json:"protocol,omitempty"`
+	Scope       string `json:"scope,omitempty"`
+	Table       string `json:"routing_table,omitempty"`
+	Version     int    `json:"ip_version"`
+	Type        string `json:"route_type"`
+	Status      string `json:"status"`
+}
+
 type PPPoEStatus struct {
 	ServiceName        string `json:"service_name"`
 	AccessConcentrator string `json:"access_concentrator"`

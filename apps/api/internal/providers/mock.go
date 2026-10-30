@@ -51,6 +51,22 @@ func (p *MockProvider) Interface(_ context.Context, name string) (models.Interfa
 	return models.Interface{}, NotFoundError{Resource: "interface " + name}
 }
 
+func (p *MockProvider) IPAddresses(context.Context) ([]models.IPAddress, error) {
+	return []models.IPAddress{
+		{Address: "10.0.2.15/24", Network: "10.0.2.0/24", Interface: "enp0s3", Version: 4, Scope: "global", Flags: []string{"up"}},
+		{Address: "10.50.0.1/24", Network: "10.50.0.0/24", Interface: "enp0s8", Version: 4, Scope: "global", Flags: []string{"up"}},
+		{Address: "fe80::a00:27ff:fe3a:9120/64", Network: "fe80::/64", Interface: "enp0s3", Version: 6, Scope: "link", Flags: []string{"up"}},
+	}, nil
+}
+
+func (p *MockProvider) Routes(context.Context) ([]models.Route, error) {
+	return []models.Route{
+		{Destination: "default", Gateway: "10.0.2.2", Interface: "enp0s3", Metric: 100, Protocol: "dhcp", Scope: "global", Table: "main", Version: 4, Type: "unicast", Status: "active"},
+		{Destination: "10.0.2.0/24", Interface: "enp0s3", Metric: 0, Protocol: "kernel", Scope: "link", Table: "main", Version: 4, Type: "unicast", Status: "active"},
+		{Destination: "::/0", Gateway: "fe80::1", Interface: "enp0s3", Metric: 100, Protocol: "ra", Scope: "global", Table: "main", Version: 6, Type: "unicast", Status: "active"},
+	}, nil
+}
+
 func (p *MockProvider) PPPoEStatus(context.Context) (models.PPPoEStatus, error) {
 	return models.PPPoEStatus{ServiceName: "CODENET-PPPOE", AccessConcentrator: "CODENET", Status: "active", ActiveSessions: 2, Pool: "10.60.0.10-10.60.0.50"}, nil
 }

@@ -32,6 +32,12 @@ func (*unsupportedLinuxProvider) Interfaces(context.Context) ([]models.Interface
 func (*unsupportedLinuxProvider) Interface(context.Context, string) (models.Interface, error) {
 	return models.Interface{}, errLinuxUnsupported
 }
+func (*unsupportedLinuxProvider) IPAddresses(context.Context) ([]models.IPAddress, error) {
+	return nil, errLinuxUnsupported
+}
+func (*unsupportedLinuxProvider) Routes(context.Context) ([]models.Route, error) {
+	return nil, errLinuxUnsupported
+}
 func (*unsupportedLinuxProvider) PPPoEStatus(context.Context) (models.PPPoEStatus, error) {
 	return models.PPPoEStatus{}, errLinuxUnsupported
 }

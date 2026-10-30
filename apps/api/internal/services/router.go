@@ -38,3 +38,11 @@ func (s *RouterService) Dashboard(ctx context.Context) (models.Dashboard, error)
 }
 
 func (s *RouterService) Provider() providers.RouterProvider { return s.provider }
+
+func (s *RouterService) IPAddresses(ctx context.Context) ([]models.IPAddress, error) {
+	return s.provider.IPAddresses(ctx)
+}
+
+func (s *RouterService) Routes(ctx context.Context) ([]models.Route, error) {
+	return s.provider.Routes(ctx)
+}
