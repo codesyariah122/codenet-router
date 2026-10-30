@@ -126,9 +126,10 @@ func (m *TCPAccelPPPMonitor) query(ctx context.Context) ([]byte, error) {
 	}
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(timeout))
-	// accel-cmd menggunakan protokol line-oriented: password diikuti command.
+	// accel-cmd menggunakan protokol line-oriented: password, command, lalu
+	// exit agar daemon menutup sesi CLI setelah respons dikirim.
 	// Mengirim credential melalui socket menghindari password terlihat pada argv.
-	if _, err := io.WriteString(conn, password+"\nshow sessions\n"); err != nil {
+	if _, err := io.WriteString(conn, password+"\nshow sessions\nexit\n"); err != nil {
 		return nil, MonitoringUnavailableError{Cause: err}
 	}
 	output, err := readCLIOutput(conn, 2*1024*1024)
@@ -177,11 +178,6 @@ func readCLIOutput(conn net.Conn, max int) ([]byte, error) {
 				return nil, ErrAccelPPPInvalidResponse
 			}
 			output = append(output, buf[:n]...)
-			// Jangan berhenti pada prompt greeting sebelum respons command
-			// diterima. Prompt dianggap terminator setelah header tabel terlihat.
-			if hasCLIPrompt(output) && strings.Contains(strings.ToLower(string(output)), "ifname") {
-				return output, nil
-			}
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -219,17 +215,17 @@ func parseAccelPPPSessions(raw []byte) ([]models.PPPoESession, error) {
 		}
 	}
 	if header < 0 {
-		for _, line := range lines {
-			if strings.TrimSpace(line) != "" && !isSeparator(line) && !hasCLIPrompt([]byte(line)) {
-				return nil, fmt.Errorf("%w: header sessions tidak ditemukan", ErrAccelPPPInvalidResponse)
-			}
-		}
-		return []models.PPPoESession{}, nil
+		return nil, fmt.Errorf("%w: header sessions tidak ditemukan", ErrAccelPPPInvalidResponse)
 	}
 	result := make([]models.PPPoESession, 0)
+	sawTableMarker := false
 	for _, line := range lines[header+1:] {
 		line = strings.TrimSpace(line)
-		if line == "" || isSeparator(line) || hasCLIPrompt([]byte(line)) {
+		if line == "" || hasCLIPrompt([]byte(line)) {
+			continue
+		}
+		if isSeparator(line) {
+			sawTableMarker = true
 			continue
 		}
 		var fields []string
@@ -249,10 +245,14 @@ func parseAccelPPPSessions(raw []byte) ([]models.PPPoESession, error) {
 		if err := validateSession(session); err != nil {
 			return nil, fmt.Errorf("%w: %v", ErrAccelPPPInvalidResponse, err)
 		}
+		sawTableMarker = true
 		result = append(result, session)
 		if len(result) > 1024 {
 			return nil, ErrAccelPPPInvalidResponse
 		}
+	}
+	if !sawTableMarker {
+		return nil, fmt.Errorf("%w: tabel sessions terpotong", ErrAccelPPPInvalidResponse)
 	}
 	return result, nil
 }

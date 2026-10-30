@@ -44,7 +44,8 @@ provider memakai `unavailableAccelPPPMonitor`, sehingga kegagalan control
 interface menghasilkan status/error eksplisit dan tidak disamakan dengan nol
 sesi. `TCPAccelPPPMonitor` dibuat jika
 `CODENET_ACCEL_PPP_CLI_PASSWORD_FILE` diisi (default host/port
-`127.0.0.1:2001`) dan hanya mengirim `show sessions`. Password dibaca dari
+`127.0.0.1:2001`) dan mengirim password, `show sessions`, lalu `exit`.
+Password dibaca dari
 file owner-only. `JSONSocketAccelPPPMonitor` tetap dibuat jika
 `CODENET_ACCEL_PPP_CONTROL_SOCKET` diisi; format JSON-lines tersebut adalah
 adapter CODENET yang harus disediakan dan diverifikasi terhadap instalasi

@@ -83,7 +83,8 @@ tombol perubahan konfigurasi.
 
 Monitoring Accel-PPP memakai CLI TCP terverifikasi melalui
 `CODENET_ACCEL_PPP_CLI_HOST`, `CODENET_ACCEL_PPP_CLI_PORT`, dan
-`CODENET_ACCEL_PPP_CLI_PASSWORD_FILE`; adapter hanya mengirim `show sessions`.
+`CODENET_ACCEL_PPP_CLI_PASSWORD_FILE`; adapter mengirim password, `show
+sessions`, lalu `exit` untuk menutup sesi CLI secara bersih.
 Password wajib berada pada file owner-only. Adapter JSON Unix-socket lama tetap
 tersedia sebagai fallback. Tanpa konfigurasi, API menampilkan sumber monitoring
 tidak tersedia, bukan mengklaim tidak ada pelanggan.

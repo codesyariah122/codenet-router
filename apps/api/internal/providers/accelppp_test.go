@@ -1,6 +1,7 @@
 package providers
 
 import (
+	"bufio"
 	"context"
 	"net"
 	"os"
@@ -76,9 +77,13 @@ func TestParseAccelPPPSessionsPipeTable(t *testing.T) {
 }
 
 func TestParseAccelPPPSessionsEmptyAndMalformed(t *testing.T) {
-	empty, err := parseAccelPPPSessions([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n"))
+	empty, err := parseAccelPPPSessions([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n" +
+		"-------+----------+-------------+----+------------+------+------+-------+-------\n"))
 	if err != nil || len(empty) != 0 {
 		t.Fatalf("empty=%#v err=%v", empty, err)
+	}
+	if _, err := parseAccelPPPSessions([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n")); err == nil {
+		t.Fatal("expected truncated table error")
 	}
 	if _, err := parseAccelPPPSessions([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\nppp0 | broken\n")); err == nil {
 		t.Fatal("expected malformed response")
@@ -115,9 +120,16 @@ func TestTCPAccelPPPMonitorNetPipe(t *testing.T) {
 		client, server := net.Pipe()
 		go func() {
 			defer server.Close()
-			buf := make([]byte, 128)
-			n, _ := server.Read(buf)
-			if got := string(buf[:n]); !strings.Contains(got, "secret\nshow sessions\n") {
+			reader := bufio.NewReader(server)
+			var lines []string
+			for len(lines) < 3 {
+				line, readErr := reader.ReadString('\n')
+				if readErr != nil {
+					return
+				}
+				lines = append(lines, strings.TrimSpace(line))
+			}
+			if strings.Join(lines, "|") != "secret|show sessions|exit" {
 				return
 			}
 			_, _ = server.Write([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n" +
@@ -147,8 +159,18 @@ func TestTCPAccelPPPMonitorMockTCPServer(t *testing.T) {
 			return
 		}
 		defer conn.Close()
-		buf := make([]byte, 128)
-		_, _ = conn.Read(buf)
+		reader := bufio.NewReader(conn)
+		var lines []string
+		for len(lines) < 3 {
+			line, readErr := reader.ReadString('\n')
+			if readErr != nil {
+				return
+			}
+			lines = append(lines, strings.TrimSpace(line))
+		}
+		if strings.Join(lines, "|") != "secret|show sessions|exit" {
+			return
+		}
 		_, _ = conn.Write([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n" +
 			"ppp1 | bob | sid | 10.60.0.11 | 10000/5000 | pppoe | | active | 00:00:05\n"))
 	}()
@@ -156,6 +178,40 @@ func TestTCPAccelPPPMonitorMockTCPServer(t *testing.T) {
 	monitor := NewTCPAccelPPPMonitor("127.0.0.1", strconv.Itoa(addr.Port), path)
 	sessions, err := monitor.Sessions(context.Background())
 	if err != nil || len(sessions) != 1 || sessions[0].Username != "bob" {
+		t.Fatalf("sessions=%#v err=%v", sessions, err)
+	}
+}
+
+func TestTCPAccelPPPMonitorTerminatesCLIConversation(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "password")
+	if err := os.WriteFile(path, []byte("secret"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	monitor := NewTCPAccelPPPMonitor("127.0.0.1", "2001", path)
+	monitor.Timeout = 250 * time.Millisecond
+	monitor.dial = func(context.Context, string, string) (net.Conn, error) {
+		client, server := net.Pipe()
+		go func() {
+			defer server.Close()
+			reader := bufio.NewReader(server)
+			var lines []string
+			for len(lines) < 3 {
+				line, err := reader.ReadString('\n')
+				if err != nil {
+					return
+				}
+				lines = append(lines, strings.TrimSpace(line))
+			}
+			if strings.Join(lines, "|") != "secret|show sessions|exit" {
+				return
+			}
+			_, _ = server.Write([]byte("ifname | username | calling-sid | ip | rate-limit | type | comp | state | uptime\n" +
+				"-------+----------+-------------+----+------------+------+------+-------+-------\n"))
+		}()
+		return client, nil
+	}
+	sessions, err := monitor.Sessions(context.Background())
+	if err != nil || len(sessions) != 0 {
 		t.Fatalf("sessions=%#v err=%v", sessions, err)
 	}
 }

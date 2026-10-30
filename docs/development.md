@@ -34,7 +34,8 @@ Linux/VM terisolasi. Endpoint IP memakai `GET /api/v1/ip/addresses` dan
 `GET /api/v1/ip/routes`; keduanya tetap membutuhkan session administrator.
 
 Adapter TCP aktif jika password file diisi dan hanya mengirim perintah tetap
-`show sessions`. Jangan menyimpan password di environment atau command-line.
+`show sessions`, lalu `exit` sebagai terminator sesi. Jangan menyimpan password
+di environment atau command-line.
 Adapter JSON fallback memakai kontrak berikut. Jangan mengisi variabel
 socket dengan nama/format yang belum diverifikasi. Kontrak adapter mengirim
 baris JSON `{"action":"status"}` atau `{"action":"sessions"}` dan menerima

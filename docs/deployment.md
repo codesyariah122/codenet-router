@@ -60,8 +60,8 @@ byte-rate masih menjadi roadmap. Integrasi ke Debian 13 harus dilakukan setelah
 audit VM dan pengujian privilege terisolasi; tidak termasuk dalam task ini.
 
 Sesi PPPoE hanya dapat dibaca jika control adapter tersedia. Adapter TCP hanya
-mengirim perintah tetap `show sessions`, membatasi respons 2 MiB, dan memiliki
-timeout. Tanpa adapter,
+mengirim password, perintah tetap `show sessions`, lalu `exit` untuk menutup
+sesi CLI, dengan batas respons 2 MiB dan timeout. Tanpa adapter,
 `/api/v1/pppoe/status` tetap melaporkan service tetapi menandai control
 interface tidak tersedia, sedangkan `/api/v1/pppoe/sessions` mengembalikan
 HTTP 503. Tidak ada restart service, perubahan Accel-PPP, atau pembacaan

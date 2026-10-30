@@ -17,8 +17,9 @@ monitoring tidak tersedia dan endpoint sesi mengembalikan HTTP 503.
 - `AccelPPPMonitor` adalah kontrak provider read-only.
 - `unavailableAccelPPPMonitor` dipakai secara default.
 - `TCPAccelPPPMonitor` memakai koneksi TCP langsung, membaca password dari file
-  owner-only, timeout 3 detik, output maksimum 2 MiB, dan hanya mengirim
-  `show sessions`. Password tidak pernah masuk argv, log, atau HTTP response.
+  owner-only, timeout 3 detik, output maksimum 2 MiB, lalu mengirim password,
+  `show sessions`, dan `exit` agar koneksi ditutup oleh daemon. Password tidak
+  pernah masuk argv, log, atau HTTP response.
 - Parser tabel menerima delimiter `|` maupun whitespace, header/separator,
   sesi kosong, serta menolak respons rusak.
 - `JSONSocketAccelPPPMonitor` mengirim JSON-lines `status`/`sessions`, dengan
