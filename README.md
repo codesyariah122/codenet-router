@@ -1,7 +1,5 @@
 # CODENET Router OS
 
-<img width="2880" height="1694" alt="Screenshot 2026-10-30 at 15 50 28" src="https://github.com/user-attachments/assets/a49ed77b-62b5-49ef-be99-83f0ebd313fc" />
-<img width="2880" height="1694" alt="Screenshot 2026-10-30 at 15 51 21" src="https://github.com/user-attachments/assets/e6601843-06f0-48bc-89c1-9e44296a3a1f" />
 <img width="2880" height="1548" alt="Screenshot 2026-10-30 at 15 51 28" src="https://github.com/user-attachments/assets/a26b3113-81ae-40eb-ae78-0ac30891378f" />
 <img width="2880" height="1548" alt="Screenshot 2026-10-30 at 15 51 42" src="https://github.com/user-attachments/assets/b2ecb9e9-e2fa-420c-b7fe-1c81b48dc424" />
 <img width="2880" height="1548" alt="Screenshot 2026-10-30 at 15 51 46" src="https://github.com/user-attachments/assets/577fe049-c447-432d-9c59-36fcaf18ac16" />
