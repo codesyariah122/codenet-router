@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -287,6 +288,7 @@ func (s *FileStore) audit(operation, username string, success bool) {
 }
 
 func parseChapSecrets(content string) ([]models.PPPoEUser, error) {
+	// Format resmi Accel-PPP: username server password ip-address-or-pool speed.
 	users := []models.PPPoEUser{}
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	for scanner.Scan() {
@@ -306,10 +308,10 @@ func parseChapSecrets(content string) ([]models.PPPoEUser, error) {
 		if err := ValidateUsername(fields[0]); err != nil {
 			return nil, err
 		}
-		if fields[2] != "*" && !validServer(fields[2]) {
+		if !validServer(fields[1]) {
 			return nil, ErrInvalid
 		}
-		if !validPool(fields[3]) {
+		if !validAddressOrPool(fields[3]) {
 			return nil, ErrInvalid
 		}
 		dl, ul, err := parseRate(fields[4])
@@ -321,8 +323,7 @@ func parseChapSecrets(content string) ([]models.PPPoEUser, error) {
 				return nil, ErrConflict
 			}
 		}
-		users = append(users, models.PPPoEUser{Username: fields[0], Server: fields[2], IPPool: fields[3], DownloadBPS: dl, UploadBPS: ul, Enabled: !disabled})
-		users[len(users)-1].Password = fields[1]
+		users = append(users, models.PPPoEUser{Username: fields[0], Server: fields[1], IPPool: fields[3], DownloadBPS: dl, UploadBPS: ul, Enabled: !disabled, Password: fields[2]})
 	}
 	return users, scanner.Err()
 }
@@ -332,7 +333,7 @@ func serializeChapSecrets(users []models.PPPoEUser) string {
 	for _, user := range users {
 		// Password tidak dapat dipulihkan dari model read-only; helper produksi
 		// harus mempertahankan secret lama atau menerima password baru secara aman.
-		line := user.Username + " " + user.Password + " " + user.Server + " " + user.IPPool + " " + formatRate(user.DownloadBPS, user.UploadBPS) + "\n"
+		line := user.Username + " " + user.Server + " " + user.Password + " " + user.IPPool + " " + formatRate(user.DownloadBPS, user.UploadBPS) + "\n"
 		if !user.Enabled {
 			line = "# codenet-disabled " + line
 		}
@@ -348,10 +349,10 @@ func ValidateInput(input UserInput, creating bool) error {
 	if creating && (len(input.Password) < 8 || len(input.Password) > 1024 || strings.ContainsAny(input.Password, "\r\n")) {
 		return fmt.Errorf("%w: password harus 8-1024 karakter", ErrInvalid)
 	}
-	if !validServer(input.Server) || !validPool(input.IPPool) {
+	if !validServer(input.Server) || !validAddressOrPool(input.IPPool) {
 		return fmt.Errorf("%w: server atau IP pool tidak valid", ErrInvalid)
 	}
-	if input.DownloadBPS == 0 || input.UploadBPS == 0 || input.DownloadBPS > 1_000_000_000 || input.UploadBPS > 1_000_000_000 {
+	if input.DownloadBPS == 0 || input.UploadBPS == 0 || input.DownloadBPS > 1_000_000_000 || input.UploadBPS > 1_000_000_000 || input.DownloadBPS%1000 != 0 || input.UploadBPS%1000 != 0 {
 		return fmt.Errorf("%w: rate limit tidak valid", ErrInvalid)
 	}
 	return nil
@@ -367,7 +368,15 @@ func ValidateUsername(value string) error {
 	return nil
 }
 func validServer(value string) bool { return value == "*" || poolPattern.MatchString(value) }
-func validPool(value string) bool   { return poolPattern.MatchString(value) }
+func validAddressOrPool(value string) bool {
+	if net.ParseIP(value) != nil {
+		return true
+	}
+	if _, _, err := net.ParseCIDR(value); err == nil {
+		return true
+	}
+	return poolPattern.MatchString(value)
+}
 func parseRate(value string) (uint64, uint64, error) {
 	parts := strings.Split(value, "/")
 	if len(parts) != 2 {
@@ -375,13 +384,16 @@ func parseRate(value string) (uint64, uint64, error) {
 	}
 	dl, e1 := strconv.ParseUint(parts[0], 10, 64)
 	ul, e2 := strconv.ParseUint(parts[1], 10, 64)
-	if e1 != nil || e2 != nil || dl == 0 || ul == 0 || dl > 1_000_000_000 || ul > 1_000_000_000 {
+	if e1 != nil || e2 != nil || dl == 0 || ul == 0 || dl > 1_000_000 || ul > 1_000_000 {
 		return 0, 0, ErrInvalid
 	}
-	return dl, ul, nil
+	return dl * 1000, ul * 1000, nil
 }
 func formatRate(dl, ul uint64) string {
-	return strconv.FormatUint(dl, 10) + "/" + strconv.FormatUint(ul, 10)
+	if dl == 0 || ul == 0 || dl%1000 != 0 || ul%1000 != 0 {
+		return ""
+	}
+	return strconv.FormatUint(dl/1000, 10) + "/" + strconv.FormatUint(ul/1000, 10)
 }
 
 func acquireLock(path string) (func(), error) {

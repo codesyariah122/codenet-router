@@ -28,7 +28,7 @@ func startFixtureHelper(t *testing.T) (*HelperClient, string, []byte, context.Ca
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(dir) })
 	chap := filepath.Join(dir, "chap-secrets")
-	if err := os.WriteFile(chap, []byte("alice oldsecret * pool-main 10000000/5000000\n"), 0o600); err != nil {
+	if err := os.WriteFile(chap, []byte("alice * oldsecret pool-main 10000/5000\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	secretPath := filepath.Join(dir, "helper.secret")

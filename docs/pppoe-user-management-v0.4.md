@@ -5,6 +5,9 @@ Branch: `feature/webfig-pppoe-user-management-v0.4`
 ## Implementasi
 
 - Parser dan validator format lima kolom `chap-secrets`.
+- Urutan kolom mengikuti Accel-PPP: `username server password ip/pool speed`.
+- Nilai `speed` disimpan dalam Kbps (`download/upload`), sedangkan API memakai
+  BPS dan hanya menerima nilai yang dapat dikonversi tepat ke Kbps.
 - Validasi username, IP pool, server, rate `download/upload`, password, dan
   path.
 - Atomic write dengan permission preservation, backup `.bak`, rollback dasar,
@@ -26,6 +29,9 @@ langsung pada mode produksi. Helper hanya mengizinkan path tersebut, tetapi
 belum melakukan reload atau restart `codenet-pppoe`; perubahan berlaku sesuai
 perilaku Accel-PPP yang harus diverifikasi manual pada Debian 13. Password
 tidak pernah dikembalikan melalui HTTP atau audit log.
+
+Fixture serializer lama dengan urutan `username password server ...` dan rate
+BPS ditolak sebagai format legacy; tidak dimigrasikan diam-diam.
 
 Fixture lokal dapat digunakan dengan `CODENET_PPPOE_USERS_FIXTURE`, sedangkan
 produksi memakai `CODENET_PPPOE_HELPER_SOCKET` dan
