@@ -45,6 +45,15 @@
 
 ## Tahap berikutnya
 
+## v0.4 — PPPoE User Management
+
+- [x] Parser/validator format lima kolom `chap-secrets`.
+- [x] Helper terpisah dengan HMAC IPC, lock, atomic write, backup, audit, dan fail-closed.
+- [x] API CRUD user terproteksi session/CSRF.
+- [x] WebFig list, search, filter, pagination, create, enable/disable, dan delete confirmation.
+- [ ] Verifikasi reload behavior Accel-PPP pada Debian 13.
+- [ ] Pengujian perubahan akun nyata pada snapshot router.
+
 - Address dan route management (CRUD aman setelah desain v0.2 divalidasi).
 - Firewall policy dengan model deklaratif.
 - Backup/restore konfigurasi.

@@ -1,4 +1,4 @@
-import type { ApiResponse, AuthSession, BandwidthProfile, BandwidthStatistic, DashboardData, IPAddress, NetworkInterface, PPPoESession, PPPoEStatus, ResourceUsage, Route, ServiceStatus, SystemInfo } from '../types/api'
+import type { ApiResponse, AuthSession, BandwidthProfile, BandwidthStatistic, DashboardData, IPAddress, NetworkInterface, PPPoESession, PPPoEStatus, PPPoEUser, ResourceUsage, Route, ServiceStatus, SystemInfo } from '../types/api'
 
 const apiBase = import.meta.env.VITE_API_URL ?? ''
 
@@ -33,6 +33,11 @@ export const api = {
   routes: () => get<Route[]>('/api/v1/ip/routes'),
   pppoeStatus: () => get<PPPoEStatus>('/api/v1/pppoe/status'),
   pppoeSessions: () => get<PPPoESession[]>('/api/v1/pppoe/sessions'),
+  pppoeUsers: () => get<PPPoEUser[]>('/api/v1/pppoe/users'),
+  createPPPoEUser: (csrf: string, input: Omit<PPPoEUser, 'enabled'|'session_active'|'session_status'> & { password: string }) => request<PPPoEUser>('/api/v1/pppoe/users', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(input) }),
+  updatePPPoEUser: (csrf: string, username: string, input: Partial<{ server: string; ip_pool: string; download_bps: number; upload_bps: number; password: string; enabled: boolean }>) => request<PPPoEUser>(`/api/v1/pppoe/users/${encodeURIComponent(username)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(input) }),
+  setPPPoEUserEnabled: (csrf: string, username: string, enabled: boolean) => request<PPPoEUser>(`/api/v1/pppoe/users/${encodeURIComponent(username)}/${enabled ? 'enable' : 'disable'}`, { method: 'POST', headers: { 'X-CSRF-Token': csrf } }),
+  deletePPPoEUser: (csrf: string, username: string) => request<{ deleted: boolean }>(`/api/v1/pppoe/users/${encodeURIComponent(username)}`, { method: 'DELETE', headers: { 'X-CSRF-Token': csrf } }),
   bandwidthProfiles: () => get<BandwidthProfile[]>('/api/v1/bandwidth/profiles'),
   bandwidthStatistics: () => get<BandwidthStatistic[]>('/api/v1/bandwidth/statistics'),
 }

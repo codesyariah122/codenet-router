@@ -86,6 +86,18 @@ type PPPoESession struct {
 	Status        string    `json:"status"`
 }
 
+type PPPoEUser struct {
+	Username      string `json:"username"`
+	Server        string `json:"server"`
+	IPPool        string `json:"ip_pool"`
+	DownloadBPS   uint64 `json:"download_bps"`
+	UploadBPS     uint64 `json:"upload_bps"`
+	Enabled       bool   `json:"enabled"`
+	SessionActive bool   `json:"session_active"`
+	SessionStatus string `json:"session_status"`
+	Password      string `json:"-"`
+}
+
 type BandwidthProfile struct {
 	Name        string `json:"name"`
 	DownloadBPS uint64 `json:"download_bps"`

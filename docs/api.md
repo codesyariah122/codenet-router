@@ -1,4 +1,4 @@
-# Management API v0.3
+# Management API v0.4
 
 Base path: `/api/v1`. Kontrak mesin tersedia di `apps/api/openapi/openapi.yaml`.
 
@@ -30,7 +30,7 @@ go run ./cmd/codenet-admin init --username admin
 go run ./cmd/codenet-admin reset-password --username admin
 ```
 
-## Endpoint v0.3
+## Endpoint v0.4
 
 | Method | Endpoint | Keterangan |
 |---|---|---|
@@ -48,10 +48,19 @@ go run ./cmd/codenet-admin reset-password --username admin
 | GET | `/api/v1/ip/routes` | Routing table IPv4/IPv6 aktual dari kernel |
 | GET | `/api/v1/pppoe/status` | Status access concentrator |
 | GET | `/api/v1/pppoe/sessions` | Sesi pelanggan tanpa password; 503 jika control interface tidak tersedia |
+| GET | `/api/v1/pppoe/users` | Daftar user PPPoE tanpa password; status sesi dipetakan dari monitoring Accel-PPP |
+| POST | `/api/v1/pppoe/users` | Membuat user melalui helper; CSRF wajib |
+| PUT | `/api/v1/pppoe/users/{username}` | Mengubah pool/bandwidth atau reset password; CSRF wajib |
+| POST | `/api/v1/pppoe/users/{username}/enable` | Mengaktifkan user; CSRF wajib |
+| POST | `/api/v1/pppoe/users/{username}/disable` | Menonaktifkan user tanpa disconnect sesi; CSRF wajib |
+| DELETE | `/api/v1/pppoe/users/{username}` | Menghapus user dengan konfirmasi UI dan audit; CSRF wajib |
 | GET | `/api/v1/bandwidth/profiles` | Profil limiter read-only |
 | GET | `/api/v1/bandwidth/statistics` | Statistik TC/shaper |
 
-Semua endpoint router bersifat read-only. Operasi create/update/delete/disconnect belum tersedia. Kontrak lengkap berada di `apps/api/openapi/openapi.yaml`.
+Operasi user PPPoE tidak ditulis langsung oleh Management API. API mengirim
+request terstruktur melalui Unix socket terautentikasi ke helper terpisah.
+Tanpa helper, endpoint user mengembalikan HTTP 503. Password tidak pernah
+dikembalikan dalam respons.
 
 `/ip/addresses` mengembalikan `address`, `network`, `interface`, `ip_version`,
 `scope`, dan `flags`. `/ip/routes` mengembalikan destination, gateway,

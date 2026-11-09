@@ -17,6 +17,8 @@
 @layer components {
   .panel { @apply rounded-2xl border border-slate-200/90 bg-white shadow-panel dark:border-slate-800/80 dark:bg-[#0b1726] dark:shadow-none; }
   .button-secondary { @apply inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-cyan-300 hover:text-cyan-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300; }
+  .button-primary { @apply inline-flex items-center gap-2 rounded-lg bg-cyan-500 px-3.5 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60; }
+  .input { @apply w-full rounded-lg border border-slate-200 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-cyan-500 dark:border-slate-700; }
   .metric-label { @apply text-[10px] font-bold uppercase tracking-[.15em] text-slate-400; }
   .progress { @apply mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800; }
   .progress i { @apply block h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-300; }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/codesyariah/codenet-router/apps/api/internal/auth"
 	"github.com/codesyariah/codenet-router/apps/api/internal/middleware"
+	"github.com/codesyariah/codenet-router/apps/api/internal/pppoeusers"
 	"github.com/codesyariah/codenet-router/apps/api/internal/providers"
 	"github.com/codesyariah/codenet-router/apps/api/internal/services"
 )
@@ -21,6 +22,7 @@ type API struct {
 	logger       *slog.Logger
 	cookieName   string
 	cookieSecure bool
+	users        pppoeusers.Manager
 }
 type response struct {
 	Success bool         `json:"success"`
@@ -38,11 +40,15 @@ type Config struct {
 	CookieSecure  bool
 }
 
-func New(service *services.RouterService, authService *auth.Service, logger *slog.Logger, config Config) http.Handler {
+func New(service *services.RouterService, authService *auth.Service, logger *slog.Logger, config Config, managers ...pppoeusers.Manager) http.Handler {
 	if config.CookieName == "" {
 		config.CookieName = "codenet_session"
 	}
-	api := &API{service: service, auth: authService, logger: logger, cookieName: config.CookieName, cookieSecure: config.CookieSecure}
+	manager := pppoeusers.NewUnavailableManager()
+	if len(managers) > 0 && managers[0] != nil {
+		manager = managers[0]
+	}
+	api := &API{service: service, auth: authService, logger: logger, cookieName: config.CookieName, cookieSecure: config.CookieSecure, users: manager}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", api.health)
 	mux.HandleFunc("POST /api/v1/auth/login", api.login)
@@ -59,6 +65,12 @@ func New(service *services.RouterService, authService *auth.Service, logger *slo
 	protected.HandleFunc("GET /api/v1/ip/routes", api.routes)
 	protected.HandleFunc("GET /api/v1/pppoe/status", api.pppoeStatus)
 	protected.HandleFunc("GET /api/v1/pppoe/sessions", api.pppoeSessions)
+	protected.HandleFunc("GET /api/v1/pppoe/users", api.pppoeUsers)
+	protected.HandleFunc("POST /api/v1/pppoe/users", api.createPPPoEUser)
+	protected.HandleFunc("PUT /api/v1/pppoe/users/{username}", api.updatePPPoEUser)
+	protected.HandleFunc("POST /api/v1/pppoe/users/{username}/enable", api.enablePPPoEUser)
+	protected.HandleFunc("POST /api/v1/pppoe/users/{username}/disable", api.disablePPPoEUser)
+	protected.HandleFunc("DELETE /api/v1/pppoe/users/{username}", api.deletePPPoEUser)
 	protected.HandleFunc("GET /api/v1/bandwidth/profiles", api.bandwidthProfiles)
 	protected.HandleFunc("GET /api/v1/bandwidth/statistics", api.bandwidthStatistics)
 	mux.Handle("/api/v1/", middleware.Authenticate(authService, config.CookieName, middleware.CSRFForUnsafeMethods(protected)))
@@ -258,6 +270,116 @@ func (a *API) pppoeSessions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.write(w, 200, "Sesi PPPoE berhasil diambil", data)
+}
+
+func (a *API) pppoeUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := a.users.List(r.Context())
+	if err != nil {
+		a.failUser(w, err)
+		return
+	}
+	sessions, sessionErr := a.service.Provider().PPPoESessions(r.Context())
+	active := map[string]bool{}
+	if sessionErr == nil {
+		for _, session := range sessions {
+			active[session.Username] = true
+		}
+	}
+	for i := range users {
+		users[i].SessionActive = active[users[i].Username]
+		if sessionErr != nil {
+			users[i].SessionStatus = "unknown"
+		} else if users[i].SessionActive {
+			users[i].SessionStatus = "active"
+		} else {
+			users[i].SessionStatus = "inactive"
+		}
+	}
+	a.write(w, http.StatusOK, "Daftar user PPPoE berhasil diambil", users)
+}
+
+func (a *API) createPPPoEUser(w http.ResponseWriter, r *http.Request) {
+	var input pppoeusers.UserInput
+	if err := decodeJSON(r, &input); err != nil {
+		a.writeError(w, http.StatusBadRequest, "INVALID_INPUT", "Format user PPPoE tidak valid")
+		return
+	}
+	user, err := a.users.Create(r.Context(), input)
+	if err != nil {
+		a.failUser(w, err)
+		return
+	}
+	a.write(w, http.StatusCreated, "User PPPoE berhasil dibuat", user)
+}
+
+func (a *API) updatePPPoEUser(w http.ResponseWriter, r *http.Request) {
+	username := r.PathValue("username")
+	var input pppoeusers.UserInput
+	if err := decodeJSON(r, &input); err != nil {
+		a.writeError(w, http.StatusBadRequest, "INVALID_INPUT", "Format user PPPoE tidak valid")
+		return
+	}
+	user, err := a.users.Update(r.Context(), username, input)
+	if err != nil {
+		a.failUser(w, err)
+		return
+	}
+	a.write(w, http.StatusOK, "User PPPoE berhasil diperbarui", user)
+}
+
+func (a *API) enablePPPoEUser(w http.ResponseWriter, r *http.Request) {
+	a.setPPPoEUserEnabled(w, r, true)
+}
+func (a *API) disablePPPoEUser(w http.ResponseWriter, r *http.Request) {
+	a.setPPPoEUserEnabled(w, r, false)
+}
+func (a *API) setPPPoEUserEnabled(w http.ResponseWriter, r *http.Request, enabled bool) {
+	user, err := a.users.SetEnabled(r.Context(), r.PathValue("username"), enabled)
+	if err != nil {
+		a.failUser(w, err)
+		return
+	}
+	a.write(w, http.StatusOK, "Status user PPPoE berhasil diubah", user)
+}
+func (a *API) deletePPPoEUser(w http.ResponseWriter, r *http.Request) {
+	if err := a.users.Delete(r.Context(), r.PathValue("username")); err != nil {
+		a.failUser(w, err)
+		return
+	}
+	a.write(w, http.StatusOK, "User PPPoE berhasil dihapus", map[string]bool{"deleted": true})
+}
+
+func decodeJSON(r *http.Request, target any) error {
+	if !strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "application/json") {
+		return errors.New("content type")
+	}
+	decoder := json.NewDecoder(io.LimitReader(r.Body, 16*1024))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(target); err != nil {
+		return err
+	}
+	var extra any
+	if err := decoder.Decode(&extra); err != io.EOF {
+		return errors.New("body memiliki data tambahan")
+	}
+	return nil
+}
+
+func (a *API) failUser(w http.ResponseWriter, err error) {
+	status, code, message := http.StatusBadRequest, "INVALID_INPUT", "Data user PPPoE tidak valid"
+	if errors.Is(err, pppoeusers.ErrUnavailable) {
+		status, code, message = http.StatusServiceUnavailable, "HELPER_UNAVAILABLE", "Helper user PPPoE tidak tersedia"
+	}
+	if errors.Is(err, pppoeusers.ErrConflict) {
+		status, code, message = http.StatusConflict, "CONFLICT", "Username PPPoE sudah ada"
+	}
+	if errors.Is(err, pppoeusers.ErrNotFound) {
+		status, code, message = http.StatusNotFound, "NOT_FOUND", "Username PPPoE tidak ditemukan"
+	}
+	if status >= 500 {
+		a.logger.Error("operasi user PPPoE gagal", "error", err)
+	}
+	a.writeError(w, status, code, message)
 }
 func (a *API) bandwidthProfiles(w http.ResponseWriter, r *http.Request) {
 	data, err := a.service.Provider().BandwidthProfiles(r.Context())

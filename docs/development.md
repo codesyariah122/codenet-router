@@ -26,6 +26,9 @@ Environment yang didukung:
 | `CODENET_ACCEL_PPP_CLI_HOST` | `127.0.0.1` | Host CLI TCP Accel-PPP |
 | `CODENET_ACCEL_PPP_CLI_PORT` | `2001` | Port CLI TCP Accel-PPP |
 | `CODENET_ACCEL_PPP_CLI_PASSWORD_FILE` | kosong | File password owner-only mode 0600 |
+| `CODENET_PPPOE_HELPER_SOCKET` | kosong | Unix socket helper user PPPoE |
+| `CODENET_PPPOE_HELPER_SECRET_FILE` | kosong | Secret IPC helper owner-only |
+| `CODENET_PPPOE_USERS_FIXTURE` | kosong | Fixture lokal eksplisit untuk development; bukan produksi |
 
 Mode mock tidak membutuhkan Linux, root, systemd, tc, atau Accel-PPP.
 

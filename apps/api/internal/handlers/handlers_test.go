@@ -17,6 +17,7 @@ import (
 	"github.com/codesyariah/codenet-router/apps/api/internal/auth"
 	"github.com/codesyariah/codenet-router/apps/api/internal/models"
 	"github.com/codesyariah/codenet-router/apps/api/internal/providers"
+	"github.com/codesyariah/codenet-router/apps/api/internal/pppoeusers"
 	"github.com/codesyariah/codenet-router/apps/api/internal/services"
 )
 
@@ -40,6 +41,27 @@ func testHandlerWithProvider(t *testing.T, authConfig auth.Config, secureCookie 
 	authService := auth.NewService(store, authConfig)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	return New(services.NewRouter(provider), authService, logger, Config{AllowedOrigin: "http://127.0.0.1:5173", CookieName: "codenet_session", CookieSecure: secureCookie})
+}
+
+func TestPPPoEUsersRequiresAuthAndSupportsFixtureCreate(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "chap-secrets")
+	manager := pppoeusers.NewFileStore(path)
+	handler := testHandlerWithManager(t, auth.Config{}, false, providers.NewMock(), manager)
+	if recorder := perform(handler, http.MethodGet, "/api/v1/pppoe/users", nil, nil, ""); recorder.Code != http.StatusUnauthorized { t.Fatalf("unauth status=%d", recorder.Code) }
+	cookie, csrf := login(t, handler)
+	body, _ := json.Marshal(map[string]any{"username":"new-user", "password":"password123", "server":"*", "ip_pool":"pool-main", "download_bps":10000000, "upload_bps":5000000})
+	recorder := perform(handler, http.MethodPost, "/api/v1/pppoe/users", body, cookie, csrf)
+	if recorder.Code != http.StatusCreated || strings.Contains(recorder.Body.String(), "password123") { t.Fatalf("create status=%d body=%s", recorder.Code, recorder.Body.String()) }
+}
+
+func testHandlerWithManager(t *testing.T, authConfig auth.Config, secureCookie bool, provider providers.RouterProvider, manager pppoeusers.Manager) http.Handler {
+	t.Helper()
+	store, err := auth.OpenStore(filepath.Join(t.TempDir(), "auth.db")); if err != nil { t.Fatal(err) }
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.CreateAdmin(context.Background(), "admin", testPassword); err != nil { t.Fatal(err) }
+	authService := auth.NewService(store, authConfig)
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	return New(services.NewRouter(provider), authService, logger, Config{AllowedOrigin:"http://127.0.0.1:5173", CookieName:"codenet_session", CookieSecure:secureCookie}, manager)
 }
 
 func perform(handler http.Handler, method, path string, body []byte, cookie *http.Cookie, csrf string) *httptest.ResponseRecorder {

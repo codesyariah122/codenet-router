@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
   title: CODENET Management API
-  version: 0.3.0
-  description: API monitoring Linux dan Accel-PPP read-only dengan autentikasi administrator untuk CODENET Router OS.
+  version: 0.4.0
+  description: API monitoring Linux dan pengelolaan user PPPoE terproteksi dengan helper terpisah untuk CODENET Router OS.
 servers:
   - url: http://127.0.0.1:8080/api/v1
     description: Development lokal
@@ -186,6 +186,67 @@ paths:
                   - type: object
                     properties: { data: { type: array, items: { $ref: '#/components/schemas/PPPoESession' } } }
         '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /pppoe/users:
+    get:
+      tags: [PPPoE]
+      summary: Mengambil daftar user PPPoE tanpa password
+      responses:
+        '200':
+          description: Daftar user
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/SuccessEnvelope'
+                  - type: object
+                    properties: { data: { type: array, items: { $ref: '#/components/schemas/PPPoEUser' } } }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+    post:
+      tags: [PPPoE]
+      summary: Membuat user PPPoE melalui helper terprivilege
+      parameters: [{ name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json: { schema: { $ref: '#/components/schemas/PPPoEUserInput' } }
+      responses:
+        '201': { $ref: '#/components/responses/Success' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '503': { $ref: '#/components/responses/ServiceUnavailable' }
+  /pppoe/users/{username}:
+    put:
+      tags: [PPPoE]
+      summary: Memperbarui user PPPoE atau mereset password
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+        - { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PPPoEUserUpdate' } } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [PPPoE]
+      summary: Menghapus user PPPoE dengan audit
+      parameters:
+        - { name: username, in: path, required: true, schema: { type: string } }
+        - { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }
+      responses:
+        '200': { $ref: '#/components/responses/Success' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /pppoe/users/{username}/enable:
+    post:
+      tags: [PPPoE]
+      summary: Mengaktifkan user PPPoE
+      parameters: [{ name: username, in: path, required: true, schema: { type: string } }, { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
+  /pppoe/users/{username}/disable:
+    post:
+      tags: [PPPoE]
+      summary: Menonaktifkan user PPPoE tanpa disconnect sesi aktif
+      parameters: [{ name: username, in: path, required: true, schema: { type: string } }, { name: X-CSRF-Token, in: header, required: true, schema: { type: string } }]
+      responses: { '200': { $ref: '#/components/responses/Success' } }
   /bandwidth/profiles:
     get:
       tags: [Bandwidth]
@@ -210,6 +271,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/SuccessEnvelope' }
+    BadRequest:
+      description: Input tidak valid
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
     NotFound:
       description: Resource tidak ditemukan
       content:
@@ -327,6 +393,40 @@ components:
         download_bps: { type: integer, format: int64, minimum: 0 }
         upload_bps: { type: integer, format: int64, minimum: 0 }
         status: { type: string }
+    PPPoEUser:
+      type: object
+      required: [username, server, ip_pool, download_bps, upload_bps, enabled, session_active, session_status]
+      properties:
+        username: { type: string }
+        server: { type: string }
+        ip_pool: { type: string }
+        download_bps: { type: integer, format: int64, minimum: 1 }
+        upload_bps: { type: integer, format: int64, minimum: 1 }
+        enabled: { type: boolean }
+        session_active: { type: boolean }
+        session_status: { type: string, enum: [active, inactive, unknown] }
+    PPPoEUserInput:
+      type: object
+      additionalProperties: false
+      required: [username, password, server, ip_pool, download_bps, upload_bps]
+      properties:
+        username: { type: string, pattern: '^[A-Za-z0-9._-]{1,64}$' }
+        password: { type: string, minLength: 8, maxLength: 1024, format: password }
+        server: { type: string }
+        ip_pool: { type: string }
+        download_bps: { type: integer, minimum: 1 }
+        upload_bps: { type: integer, minimum: 1 }
+    PPPoEUserUpdate:
+      type: object
+      additionalProperties: false
+      required: [server, ip_pool, download_bps, upload_bps]
+      properties:
+        password: { type: string, minLength: 8, maxLength: 1024, format: password }
+        server: { type: string }
+        ip_pool: { type: string }
+        download_bps: { type: integer, minimum: 1 }
+        upload_bps: { type: integer, minimum: 1 }
+        enabled: { type: boolean }
     PPPoEStatus:
       type: object
       required: [service_name, access_concentrator, status, active_sessions, ip_pool]

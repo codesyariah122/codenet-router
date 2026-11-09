@@ -5,11 +5,11 @@
 <img width="2880" height="1548" alt="Screenshot 2026-10-30 at 15 51 46" src="https://github.com/user-attachments/assets/577fe049-c447-432d-9c59-36fcaf18ac16" />
 <img width="2880" height="1548" alt="Screenshot 2026-10-30 at 15 51 56" src="https://github.com/user-attachments/assets/7dba9ce1-eb54-4e06-af53-3c7d8f6dacd4" />
 
-CODENET adalah fondasi sistem operasi router Linux independen yang dikembangkan oleh **CodeSyariah**. Repository ini berisi **CODENET Management API** dan **CODENET WebFig v0.3** dengan fokus integrasi Linux/Accel-PPP read-only serta hardening autentikasi administrator.
+CODENET adalah fondasi sistem operasi router Linux independen yang dikembangkan oleh **CodeSyariah**. Repository ini berisi **CODENET Management API** dan **CODENET WebFig v0.4** dengan monitoring Linux/Accel-PPP serta pengelolaan user PPPoE melalui helper terisolasi.
 
 > **Intelligent Network Operating System**
 
-Status v0.3: dashboard, interface, IP Addresses, IP Routes, PPPoE sessions, bandwidth, dan status sistem tersedia. Mock Provider digunakan lokal; Linux Provider membaca resource, interface, systemd, TC, serta sesi Accel-PPP hanya melalui control adapter yang dikonfigurasi eksplisit. Seluruh endpoint monitoring membutuhkan session administrator; hanya `/health` dan login yang publik.
+Status v0.4: dashboard, interface, IP Addresses, IP Routes, PPPoE sessions, user management, bandwidth, dan status sistem tersedia. Operasi user memakai helper fixed-operation, HMAC IPC, atomic write, lock, backup, dan audit. Tanpa helper, API fail-closed; tidak ada password di respons.
 
 ## Arsitektur singkat
 
@@ -104,6 +104,6 @@ Lihat [panduan development](docs/development.md), [arsitektur](docs/architecture
 - Bind API tetap loopback secara default dan API tidak boleh dijalankan sebagai root.
 - Tidak ada password PPPoE dalam model atau respons API.
 
-Laporan audit v0.1.1 tersedia di [docs/security-audit-v0.1.1.md](docs/security-audit-v0.1.1.md), laporan integrasi Linux v0.2 di [docs/linux-integration-v0.2.md](docs/linux-integration-v0.2.md), dan laporan Accel-PPP v0.3 di [docs/pppoe-integration-v0.3.md](docs/pppoe-integration-v0.3.md).
+Laporan audit v0.1.1 tersedia di [docs/security-audit-v0.1.1.md](docs/security-audit-v0.1.1.md), laporan integrasi Linux v0.2 di [docs/linux-integration-v0.2.md](docs/linux-integration-v0.2.md), laporan Accel-PPP v0.3 di [docs/pppoe-integration-v0.3.md](docs/pppoe-integration-v0.3.md), dan laporan user management v0.4 di [docs/pppoe-user-management-v0.4.md](docs/pppoe-user-management-v0.4.md).
 
 Lisensi belum ditetapkan. Seluruh hak produk dan identitas CODENET dimiliki CodeSyariah.

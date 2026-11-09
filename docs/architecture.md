@@ -80,7 +80,7 @@ Alur autentikasi v0.1.1:
 
 ## Batas trust dan privilege
 
-API tidak mengubah nftables, routing, interface, TC, Accel-PPP, atau systemd. Unit contoh menjalankan service sebagai `codenet-api`, tanpa capability Linux, dengan `ProtectSystem=strict`, `ProtectHome=true`, `PrivateDevices=true`, dan state directory khusus. Helper privilege versi mendatang harus terpisah, fixed-operation, dan tidak dipanggil langsung dari parameter HTTP.
+API tidak mengubah nftables, routing, interface, TC, Accel-PPP, atau systemd. Unit contoh menjalankan service sebagai `codenet-api`, tanpa capability Linux, dengan `ProtectSystem=strict`, `ProtectHome=true`, `PrivateDevices=true`, dan state directory khusus. Helper user PPPoE v0.4 berjalan sebagai proses terpisah, menerima operasi terstruktur melalui Unix socket HMAC, mengunci file, menulis atomik, mempertahankan permission, dan hanya mengizinkan `/etc/codenet/chap-secrets`. API default fail-closed jika helper tidak tersedia.
 
 ## Rancangan CRUD IP/route berikutnya
 
@@ -91,7 +91,8 @@ terpisah dengan operasi fixed-command. Safe Apply harus menyimpan snapshot,
 menguji konektivitas management, memiliki timeout dan automatic rollback bila
 health check gagal, lalu melakukan persistence secara atomik setelah sukses.
 
-PPPoE user management juga belum aktif. Create/update/disable/delete user,
-assignment profile, dan disconnect session harus memakai adapter write terpisah,
-CSRF/otorisasi, audit log, preview, dan rollback. `chap-secrets` tidak boleh
-diubah otomatis oleh v0.3.
+PPPoE user management v0.4 memakai format lima kolom tanpa password pada model
+HTTP. Disable dilakukan dengan komentar marker yang mempertahankan riwayat dan
+mengeluarkan akun dari parser Accel-PPP; sesi online tidak diputus otomatis.
+Perubahan tetap membutuhkan CSRF, audit log, backup/rollback, dan helper
+terpisah. Reload daemon belum dilakukan otomatis dan harus diverifikasi manual.

@@ -66,3 +66,19 @@ sesi CLI, dengan batas respons 2 MiB dan timeout. Tanpa adapter,
 interface tidak tersedia, sedangkan `/api/v1/pppoe/sessions` mengembalikan
 HTTP 503. Tidak ada restart service, perubahan Accel-PPP, atau pembacaan
 `chap-secrets`.
+
+## Helper PPPoE User v0.4
+
+Build helper secara terpisah:
+
+```bash
+cd apps/api
+CGO_ENABLED=0 go build -trimpath -o ../../dist/codenet-pppoe-helper ./cmd/codenet-pppoe-helper
+```
+
+Pada Debian, buat secret IPC mode `0600`, jalankan helper sebagai service
+terpisah dengan akses terbatas, dan set `CODENET_PPPOE_HELPER_SOCKET` serta
+`CODENET_PPPOE_HELPER_SECRET_FILE` pada API. Helper hanya mengizinkan
+`/etc/codenet/chap-secrets`, memakai lock dan atomic write, membuat backup
+`.bak`, serta tidak melakukan reload atau disconnect otomatis. Uji dahulu
+terhadap fixture/snapshot; jangan menulis file router asli dari workstation.

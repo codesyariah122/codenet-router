@@ -14,6 +14,7 @@ import (
 
 	"github.com/codesyariah/codenet-router/apps/api/internal/auth"
 	"github.com/codesyariah/codenet-router/apps/api/internal/handlers"
+	"github.com/codesyariah/codenet-router/apps/api/internal/pppoeusers"
 	"github.com/codesyariah/codenet-router/apps/api/internal/providers"
 	"github.com/codesyariah/codenet-router/apps/api/internal/services"
 )
@@ -44,9 +45,15 @@ func main() {
 	} else {
 		provider = providers.NewMock()
 	}
+	var userManager pppoeusers.Manager = pppoeusers.NewUnavailableManager()
+	if fixture := os.Getenv("CODENET_PPPOE_USERS_FIXTURE"); fixture != "" {
+		userManager = pppoeusers.NewFileStore(fixture)
+	} else if socket, secret := os.Getenv("CODENET_PPPOE_HELPER_SOCKET"), os.Getenv("CODENET_PPPOE_HELPER_SECRET_FILE"); socket != "" && secret != "" {
+		userManager = pppoeusers.NewHelperClient(socket, secret)
+	}
 	address := env("CODENET_API_ADDRESS", "127.0.0.1:8080")
 	allowedOrigin := env("CODENET_ALLOWED_ORIGIN", "http://127.0.0.1:5173")
-	server := &http.Server{Addr: address, Handler: handlers.New(services.NewRouter(provider), authService, logger, handlers.Config{AllowedOrigin: allowedOrigin, CookieName: "codenet_session", CookieSecure: envBool("CODENET_COOKIE_SECURE", false)}), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
+	server := &http.Server{Addr: address, Handler: handlers.New(services.NewRouter(provider), authService, logger, handlers.Config{AllowedOrigin: allowedOrigin, CookieName: "codenet_session", CookieSecure: envBool("CODENET_COOKIE_SECURE", false)}, userManager), ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 10 * time.Second, WriteTimeout: 15 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	go func() {
 		logger.Info("CODENET Management API berjalan", "address", address, "provider", providerName)
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {

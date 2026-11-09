@@ -1,0 +1,25 @@
+[Unit]
+Description=CODENET PPPoE user privileged helper
+After=local-fs.target
+
+[Service]
+Type=simple
+# File target diverifikasi root:root 0600; helper tetap terpisah dan fixed-operation.
+User=root
+Group=root
+ExecStart=/usr/local/lib/codenet/codenet-pppoe-helper --socket /run/codenet/pppoe-helper.sock --secret-file /etc/codenet/helper.secret --chap-secrets /etc/codenet/chap-secrets
+RuntimeDirectory=codenet
+RuntimeDirectoryMode=0750
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/etc/codenet/chap-secrets /etc/codenet/chap-secrets.bak /etc/codenet/chap-secrets.state /etc/codenet/chap-secrets.audit /etc/codenet/chap-secrets.lock /run/codenet
+
+[Install]
+WantedBy=multi-user.target
