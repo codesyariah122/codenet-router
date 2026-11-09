@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import { PPPoEUsersPage } from './PPPoEUsersPage'
 
@@ -15,5 +15,19 @@ describe('PPPoEUsersPage', () => {
     expect(await screen.findByText('alice')).toBeInTheDocument()
     expect(screen.getByText('active')).toBeInTheDocument()
     expect(screen.queryByText('password123')).not.toBeInTheDocument()
+  })
+
+  it('menggunakan pattern browser-valid dan menerima IP pool wildcard', async () => {
+    vi.mocked(api.pppoeUsers).mockResolvedValue([])
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><PPPoEUsersPage /></QueryClientProvider>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Tambah user' }))
+
+    const username = screen.getByPlaceholderText('Username') as HTMLInputElement
+    const ipPool = screen.getByPlaceholderText('IP pool') as HTMLInputElement
+    expect(username.getAttribute('pattern')).toBe('(?:[A-Za-z0-9._]|-){1,64}')
+    expect(ipPool.getAttribute('pattern')).toContain('[*]')
+    fireEvent.change(ipPool, { target: { value: '*' } })
+    expect(ipPool.checkValidity()).toBe(true)
   })
 })

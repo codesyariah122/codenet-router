@@ -124,6 +124,22 @@ func TestOfficialAccelPPPFormatAndLegacyFixtureRejected(t *testing.T) {
 	}
 }
 
+func TestWildcardIPPoolAcceptedForCreateAndUpdate(t *testing.T) {
+	store := fixtureStore(t)
+	created, err := store.Create(context.Background(), UserInput{Username: "wildcard", Password: "password123", Server: "*", IPPool: "*", DownloadBPS: 10000000, UploadBPS: 5000000})
+	if err != nil || created.IPPool != "*" {
+		t.Fatal("create dengan IP pool wildcard ditolak")
+	}
+	updated, err := store.Update(context.Background(), "wildcard", UserInput{Server: "*", IPPool: "*", DownloadBPS: 20000000, UploadBPS: 10000000})
+	if err != nil || updated.IPPool != "*" {
+		t.Fatal("update dengan IP pool wildcard ditolak")
+	}
+	data, err := os.ReadFile(store.Path)
+	if err != nil || !strings.Contains(string(data), "wildcard * password123 * 20000/10000") {
+		t.Fatal("wildcard tidak tersimpan dalam format Accel-PPP")
+	}
+}
+
 func TestConcurrentWritesDoNotCorruptFile(t *testing.T) {
 	store := fixtureStore(t)
 	var wg sync.WaitGroup

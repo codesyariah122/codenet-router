@@ -369,6 +369,9 @@ func ValidateUsername(value string) error {
 }
 func validServer(value string) bool { return value == "*" || poolPattern.MatchString(value) }
 func validAddressOrPool(value string) bool {
+	if value == "*" {
+		return true
+	}
 	if net.ParseIP(value) != nil {
 		return true
 	}
