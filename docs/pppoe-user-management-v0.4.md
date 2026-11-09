@@ -30,6 +30,9 @@ tidak pernah dikembalikan melalui HTTP atau audit log.
 Fixture lokal dapat digunakan dengan `CODENET_PPPOE_USERS_FIXTURE`, sedangkan
 produksi memakai `CODENET_PPPOE_HELPER_SOCKET` dan
 `CODENET_PPPOE_HELPER_SECRET_FILE`.
+Untuk integration test Debian, gunakan unit terpisah
+`configs/systemd/codenet-pppoe-helper-fixture.service`; helper fixture hanya
+menerima path di bawah `/var/lib/codenet-v04/helper-test/` dan menolak root.
 
 ## Pengujian
 

@@ -4,15 +4,17 @@ import (
 	"bufio"
 	"context"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"github.com/codesyariah/codenet-router/apps/api/internal/models"
@@ -24,6 +26,7 @@ type helperRequest struct {
 	Input     *UserInput `json:"input,omitempty"`
 	Enabled   *bool      `json:"enabled,omitempty"`
 	Nonce     string     `json:"nonce"`
+	Timestamp int64      `json:"timestamp"`
 	MAC       string     `json:"mac"`
 }
 type helperResponse struct {
@@ -39,6 +42,13 @@ type HelperClient struct {
 	dial       func(context.Context, string, string) (net.Conn, error)
 }
 
+const (
+	helperRequestLimit  = 64 * 1024
+	helperResponseLimit = 1 << 20
+	helperMaxAge        = 30 * time.Second
+	helperMaxNonces     = 4096
+)
+
 func NewHelperClient(socketPath, secretFile string) *HelperClient {
 	return &HelperClient{SocketPath: socketPath, SecretFile: secretFile, Timeout: 3 * time.Second, dial: (&net.Dialer{}).DialContext}
 }
@@ -52,8 +62,11 @@ func (c *HelperClient) call(ctx context.Context, req helperRequest, target any) 
 		return ErrUnavailable
 	}
 	nonceBytes := make([]byte, 16)
-	copy(nonceBytes, []byte(fmt.Sprintf("%d", time.Now().UnixNano())))
+	if _, err := rand.Read(nonceBytes); err != nil {
+		return ErrUnavailable
+	}
 	req.Nonce = hex.EncodeToString(nonceBytes)
+	req.Timestamp = time.Now().UTC().Unix()
 	req.MAC = signRequest(secret, req)
 	timeout := c.Timeout
 	if timeout <= 0 {
@@ -75,7 +88,7 @@ func (c *HelperClient) call(ctx context.Context, req helperRequest, target any) 
 		return ErrUnavailable
 	}
 	var response helperResponse
-	limited := &ioLimitConn{Conn: conn, Remaining: 1 << 20}
+	limited := &ioLimitConn{Conn: conn, Remaining: helperResponseLimit}
 	if err := json.NewDecoder(bufio.NewReader(limited)).Decode(&response); err != nil {
 		return ErrUnavailable
 	}
@@ -117,7 +130,7 @@ func (c *HelperClient) Delete(ctx context.Context, username string) error {
 
 func readSecret(path string) ([]byte, error) {
 	info, err := os.Stat(path)
-	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 {
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 || !ownedByCurrentUser(info) {
 		return nil, ErrUnavailable
 	}
 	data, err := os.ReadFile(path)
@@ -132,6 +145,17 @@ func signRequest(secret []byte, req helperRequest) string {
 	mac := hmac.New(sha256.New, secret)
 	_, _ = mac.Write(data)
 	return hex.EncodeToString(mac.Sum(nil))
+}
+
+func ownedByCurrentUser(info os.FileInfo) bool {
+	stat, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return os.Geteuid() == 0
+	}
+	if os.Geteuid() == 0 {
+		return stat.Uid == 0
+	}
+	return uint32(os.Geteuid()) == stat.Uid
 }
 
 type ioLimitConn struct {
@@ -151,40 +175,89 @@ func (r *ioLimitConn) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// Serve menjalankan helper terpisah. Helper tidak diakses dari HTTP dan hanya
-// menerima lima operasi terstruktur yang divalidasi oleh FileStore.
+type ServeConfig struct {
+	SocketPath  string
+	SecretFile  string
+	ChapSecrets string
+	Fixture     bool
+	SocketUID   int
+	SocketGID   int
+	SocketMode  os.FileMode
+}
+
+// Serve menjalankan helper produksi. Helper produksi hanya boleh menyentuh
+// file chap-secrets router yang telah ditentukan.
 func Serve(ctx context.Context, socketPath, secretFile, chapSecrets string) error {
-	if filepath.Clean(chapSecrets) != "/etc/codenet/chap-secrets" {
-		return errors.New("helper hanya mengizinkan /etc/codenet/chap-secrets")
+	return ServeWithConfig(ctx, ServeConfig{SocketPath: socketPath, SecretFile: secretFile, ChapSecrets: chapSecrets, SocketUID: -1, SocketGID: -1, SocketMode: 0o660})
+}
+
+func ServeWithConfig(ctx context.Context, config ServeConfig) error {
+	if err := validateHelperConfig(config); err != nil {
+		return err
 	}
-	secret, err := readSecret(secretFile)
+	secret, err := readSecret(config.SecretFile)
 	if err != nil {
 		return err
 	}
-	_ = os.Remove(socketPath)
-	listener, err := net.Listen("unix", socketPath)
+	if err := prepareSocketPath(config.SocketPath); err != nil {
+		return err
+	}
+	listener, err := net.Listen("unix", config.SocketPath)
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
-	_ = os.Chmod(socketPath, 0o660)
-	store := NewFileStore(chapSecrets)
+	defer func() { _ = listener.Close(); _ = removeSocketPath(config.SocketPath) }()
+	mode := config.SocketMode
+	if mode == 0 {
+		mode = 0o660
+	}
+	if err := os.Chmod(config.SocketPath, mode); err != nil {
+		_ = listener.Close()
+		return err
+	}
+	if config.SocketUID >= 0 || config.SocketGID >= 0 {
+		uid, gid := config.SocketUID, config.SocketGID
+		if uid < 0 {
+			uid = os.Geteuid()
+		}
+		if gid < 0 {
+			gid = os.Getegid()
+		}
+		if err := os.Chown(config.SocketPath, uid, gid); err != nil {
+			_ = listener.Close()
+			return err
+		}
+	}
+	store := NewFileStore(config.ChapSecrets)
+	replay := newReplayCache()
+	sem := make(chan struct{}, 16)
 	for {
+		_ = listener.(*net.UnixListener).SetDeadline(time.Now().Add(time.Second))
 		conn, err := listener.Accept()
 		if err != nil {
 			if ctx.Err() != nil {
 				return nil
 			}
+			if errors.Is(err, os.ErrDeadlineExceeded) {
+				continue
+			}
 			continue
 		}
-		go serveConn(conn, secret, store)
+		select {
+		case sem <- struct{}{}:
+			go func() { defer func() { <-sem }(); serveConn(conn, secret, store, replay) }()
+		default:
+			_ = conn.Close()
+		}
 	}
 }
 
-func serveConn(conn net.Conn, secret []byte, store *FileStore) {
+func serveConn(conn net.Conn, secret []byte, store *FileStore, replay *replayCache) {
 	defer conn.Close()
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 	var req helperRequest
-	if err := json.NewDecoder(bufio.NewReader(conn)).Decode(&req); err != nil || !hmac.Equal([]byte(req.MAC), []byte(signRequest(secret, req))) {
+	limited := &ioLimitConn{Conn: conn, Remaining: helperRequestLimit}
+	if err := json.NewDecoder(bufio.NewReader(limited)).Decode(&req); err != nil || !validRequestMAC(secret, req) || !validRequestTime(req.Timestamp) || !replay.Accept(req.Nonce, time.Now()) {
 		_ = json.NewEncoder(conn).Encode(helperResponse{Message: "permintaan helper tidak valid"})
 		return
 	}
@@ -225,4 +298,95 @@ func serveConn(conn net.Conn, secret []byte, store *FileStore) {
 		response.Data, _ = json.Marshal(data)
 	}
 	_ = json.NewEncoder(conn).Encode(response)
+}
+
+func validRequestMAC(secret []byte, req helperRequest) bool {
+	expected, err := hex.DecodeString(req.MAC)
+	if err != nil {
+		return false
+	}
+	actual, err := hex.DecodeString(signRequest(secret, req))
+	if err != nil {
+		return false
+	}
+	return hmac.Equal(expected, actual)
+}
+func validRequestTime(timestamp int64) bool {
+	now := time.Now().UTC()
+	requestTime := time.Unix(timestamp, 0)
+	return timestamp > 0 && requestTime.After(now.Add(-helperMaxAge)) && requestTime.Before(now.Add(helperMaxAge))
+}
+
+type replayCache struct {
+	mu      sync.Mutex
+	entries map[string]time.Time
+}
+
+func newReplayCache() *replayCache { return &replayCache{entries: map[string]time.Time{}} }
+func (c *replayCache) Accept(nonce string, now time.Time) bool {
+	if len(nonce) != 32 {
+		return false
+	}
+	if _, err := hex.DecodeString(nonce); err != nil {
+		return false
+	}
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for key, expiry := range c.entries {
+		if !expiry.After(now) {
+			delete(c.entries, key)
+		}
+	}
+	if _, exists := c.entries[nonce]; exists || len(c.entries) >= helperMaxNonces {
+		return false
+	}
+	c.entries[nonce] = now.Add(helperMaxAge)
+	return true
+}
+
+func validateHelperConfig(config ServeConfig) error {
+	if config.SocketPath == "" || config.SecretFile == "" || config.ChapSecrets == "" {
+		return errors.New("konfigurasi helper tidak lengkap")
+	}
+	chap := filepath.Clean(config.ChapSecrets)
+	if config.Fixture {
+		if os.Geteuid() == 0 {
+			return errors.New("mode fixture tidak boleh berjalan sebagai root")
+		}
+		root := filepath.Clean("/var/lib/codenet-v04/helper-test")
+		if chap != root && !strings.HasPrefix(chap, root+string(os.PathSeparator)) {
+			return errors.New("fixture harus berada di bawah /var/lib/codenet-v04/helper-test")
+		}
+	} else if chap != "/etc/codenet/chap-secrets" {
+		return errors.New("helper produksi hanya mengizinkan /etc/codenet/chap-secrets")
+	}
+	return nil
+}
+
+func prepareSocketPath(path string) error {
+	parent := filepath.Dir(path)
+	info, err := os.Lstat(parent)
+	if err != nil || !info.IsDir() || info.Mode()&0o022 != 0 || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("direktori socket helper tidak aman")
+	}
+	if info, err := os.Lstat(path); err == nil {
+		if info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeSocket == 0 || !ownedByCurrentUser(info) {
+			return errors.New("path socket helper tidak aman")
+		}
+		return removeSocketPath(path)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
+func removeSocketPath(path string) error {
+	info, err := os.Lstat(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || info.Mode()&os.ModeSocket == 0 || !ownedByCurrentUser(info) {
+		return errors.New("socket helper bukan socket milik helper")
+	}
+	return os.Remove(path)
 }

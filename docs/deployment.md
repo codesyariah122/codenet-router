@@ -82,3 +82,7 @@ terpisah dengan akses terbatas, dan set `CODENET_PPPOE_HELPER_SOCKET` serta
 `/etc/codenet/chap-secrets`, memakai lock dan atomic write, membuat backup
 `.bak`, serta tidak melakukan reload atau disconnect otomatis. Uji dahulu
 terhadap fixture/snapshot; jangan menulis file router asli dari workstation.
+Untuk pengujian Debian tanpa file produksi, gunakan unit terpisah
+`configs/systemd/codenet-pppoe-helper-fixture.service`. Mode `--fixture`
+menolak root dan hanya menerima path di bawah
+`/var/lib/codenet-v04/helper-test/`.

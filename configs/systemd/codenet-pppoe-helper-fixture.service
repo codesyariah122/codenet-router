@@ -1,0 +1,21 @@
+[Unit]
+Description=CODENET PPPoE helper fixture (development only)
+
+[Service]
+Type=simple
+User=codenet-dev
+Group=codenet-dev
+ExecStart=/usr/local/lib/codenet/codenet-pppoe-helper --fixture --socket /var/lib/codenet-v04/helper-test/helper.sock --secret-file /var/lib/codenet-v04/helper-test/helper.secret --chap-secrets /var/lib/codenet-v04/helper-test/chap-secrets
+UMask=0077
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_UNIX
+ReadWritePaths=/var/lib/codenet-v04/helper-test
+
+[Install]
+WantedBy=multi-user.target

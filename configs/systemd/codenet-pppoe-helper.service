@@ -6,7 +6,8 @@ After=local-fs.target
 Type=simple
 # File target diverifikasi root:root 0600; helper tetap terpisah dan fixed-operation.
 User=root
-Group=root
+Group=codenet-api
+SupplementaryGroups=codenet-api
 ExecStart=/usr/local/lib/codenet/codenet-pppoe-helper --socket /run/codenet/pppoe-helper.sock --secret-file /etc/codenet/helper.secret --chap-secrets /etc/codenet/chap-secrets
 RuntimeDirectory=codenet
 RuntimeDirectoryMode=0750
