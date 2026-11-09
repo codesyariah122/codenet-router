@@ -154,6 +154,7 @@ func (s *FileStore) Update(ctx context.Context, username string, input UserInput
 				if input.Enabled != nil {
 					updated.Enabled = *input.Enabled
 				}
+				users[i] = updated
 				return users, updated, nil
 			}
 		}
